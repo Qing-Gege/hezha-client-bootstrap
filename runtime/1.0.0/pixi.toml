@@ -1,0 +1,21 @@
+[workspace]
+name = "legal-document-runtime"
+version = "1.0.0"
+description = "Pinned local PDF and OCR runtime for LegalSkills clients"
+channels = ["conda-forge"]
+platforms = [
+  { name = "macos-arm64", platform = "osx-arm64", macos = "11.0" },
+  { name = "macos-x64", platform = "osx-64", macos = "11.0" },
+  "win-64",
+]
+
+[dependencies]
+poppler = "==26.7.0"
+tesseract = "==5.5.3"
+
+[tasks]
+pdftotext = "pdftotext"
+pdftoppm = "pdftoppm"
+pdfseparate = "pdfseparate"
+pdfunite = "pdfunite"
+tesseract = "tesseract"

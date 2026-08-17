@@ -1,0 +1,19 @@
+Legal Skills MCP
+Copyright 2026
+
+This product contains adapted workflow concepts from claude-for-legal-ZH,
+Copyright its contributors, licensed under the Apache License 2.0.
+
+The document OCR workflow references quality-control concepts from
+chinese-lawyer-case-ocr-skill, Copyright 2026 xuqianchuan, licensed under the
+MIT License. Its macOS-only installer and bundled scripts are not included.
+
+The architecture also references the local qs-mcp implementation. No qs-mcp
+tokens, databases, audit records, or proprietary patent skill content are
+included in this repository.
+
+The packaged browser console bundle includes CodeMirror 6, Diff2Html, js-yaml,
+and markdown-it. These projects and their bundled dependencies are distributed
+under the MIT License. Reproducible source versions are recorded in
+frontend/package-lock.json; their original license notices are retained by the
+asset build and the corresponding source packages.
