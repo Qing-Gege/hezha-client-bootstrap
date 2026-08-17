@@ -44,4 +44,18 @@ jobs:
       - name: Inspect without writes
         shell: powershell
         run: powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File bootstrap/windows.ps1 Inspect
-
+      - name: Preserve native stderr when exit code is zero
+        shell: powershell
+        run: |
+          if ($PSVersionTable.PSVersion.Major -ne 5) {
+            throw "Windows PowerShell 5.1 is required for this regression"
+          }
+          . ./bootstrap/windows.ps1 Inspect | Out-Null
+          $output = @(
+            Invoke-Captured `
+              -Executable "$env:SystemRoot\System32\cmd.exe" `
+              -Arguments @("/d", "/c", "echo simulated success 1>&2 & exit /b 0")
+          )
+          if ($output.Count -ne 1 -or $output[0].Trim() -ne "simulated success") {
+            throw "native stderr output was not captured"
+          }
