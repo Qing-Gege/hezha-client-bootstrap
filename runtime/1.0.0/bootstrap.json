@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "bootstrap_version": "1.0.3",
+  "bootstrap_version": "1.0.4",
   "runtime_version": "1.0.0",
-  "source_commit": "2c3ddb1a850be586b842c480c98fb340eba3538e",
+  "source_commit": "79885460caa8fba0e15270370ca9ae2290f0db41",
   "runtime_revision": "799cc8e9e88c3293a2f38e40bf0cad93703d663e",
   "policy": {
     "user_scope_only": true,
@@ -18,17 +18,17 @@
       "os": "macos",
       "shell": "/bin/zsh",
       "filename": "macos.sh",
-      "url": "https://raw.githubusercontent.com/Qing-Gege/hezha-client-bootstrap/2c3ddb1a850be586b842c480c98fb340eba3538e/bootstrap/macos.sh",
+      "url": "https://raw.githubusercontent.com/Qing-Gege/hezha-client-bootstrap/79885460caa8fba0e15270370ca9ae2290f0db41/bootstrap/macos.sh",
       "size": 13771,
-      "sha256": "dc5f02457c71e8d0e9ada520a41facdfc0cde2800f4fc2dbc8257723dc8231ad"
+      "sha256": "0c2c448a43d7e64b7ca2ee3ce1ddff46d0736291837a653098da8c407dbcbc91"
     },
     {
       "os": "windows",
       "shell": "powershell.exe",
       "filename": "windows.ps1",
-      "url": "https://raw.githubusercontent.com/Qing-Gege/hezha-client-bootstrap/2c3ddb1a850be586b842c480c98fb340eba3538e/bootstrap/windows.ps1",
+      "url": "https://raw.githubusercontent.com/Qing-Gege/hezha-client-bootstrap/79885460caa8fba0e15270370ca9ae2290f0db41/bootstrap/windows.ps1",
       "size": 16921,
-      "sha256": "4de8676fd0b656c892fd6bc90bf3de68d1acffa733429bc48d40a5c68fe292ed"
+      "sha256": "fc1a48738ef3f56ebe58fdb1b9b85061e8fafbe9c52d9c919649bf8e620761f2"
     }
   ],
   "runtime_files": [
