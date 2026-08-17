@@ -24,7 +24,7 @@ class BootstrapContractTests(unittest.TestCase):
     def test_catalog_pins_published_entrypoints_and_runtime_files(self) -> None:
         catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
         self.assertEqual(catalog["schema_version"], 1)
-        self.assertEqual(catalog["bootstrap_version"], "1.0.0")
+        self.assertEqual(catalog["bootstrap_version"], "1.0.1")
         self.assertEqual(catalog["runtime_version"], "1.0.0")
         self.assertFalse(catalog["policy"]["publishes_custom_binary"])
         self.assertTrue(catalog["policy"]["silent_preflight"])
