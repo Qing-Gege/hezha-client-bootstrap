@@ -6,10 +6,11 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$BootstrapVersion = "1.0.2"
+$BootstrapVersion = "1.0.3"
 $RuntimeVersion = "1.0.0"
 $PixiVersion = "0.76.2"
-$OfficeCliVersion = "1.0.143"
+$OfficeCliReleaseVersion = "1.0.143"
+$OfficeCliMinimumVersion = [Version]"1.0.143"
 $MinimumFreeSpaceBytes = [int64]1610612736
 $Repository = "Qing-Gege/hezha-client-bootstrap"
 $RuntimeRevision = "799cc8e9e88c3293a2f38e40bf0cad93703d663e"
@@ -124,37 +125,93 @@ function Invoke-PixiTool {
     return Invoke-Captured -Executable $script:PixiPath -Arguments $arguments
 }
 
-function Test-Health {
+function Get-FirstCapturedLine {
+    param([string]$Executable, [string[]]$Arguments, [string]$Label)
+    $output = @(Invoke-Captured -Executable $Executable -Arguments $Arguments)
+    if ($output.Count -eq 0) {
+        throw "$Label returned no output"
+    }
+    return $output[0].Trim()
+}
+
+function Get-ReportedVersion {
+    param([string]$Output)
+    $match = [Regex]::Match($Output, '(?<!\d)(\d+\.\d+\.\d+)(?!\d)')
+    if (-not $match.Success) {
+        return $null
+    }
     try {
-        $script:OfficeCliActualVersion = (
-            Invoke-Captured -Executable $script:OfficeCliPath -Arguments @("--version")
-        )[0].Trim()
-        if ($script:OfficeCliActualVersion -notlike "*$OfficeCliVersion*") {
+        return [Version]::Parse($match.Groups[1].Value)
+    }
+    catch {
+        return $null
+    }
+}
+
+function Test-Health {
+    $script:HealthError = $null
+    $healthStep = "OfficeCLI --version"
+    try {
+        $script:OfficeCliActualVersion = Get-FirstCapturedLine `
+            -Executable $script:OfficeCliPath `
+            -Arguments @("--version") `
+            -Label $healthStep
+        $reportedVersion = Get-ReportedVersion -Output $script:OfficeCliActualVersion
+        if ($null -eq $reportedVersion) {
+            $script:HealthError = (
+                "OfficeCLI returned an unrecognized version " +
+                "'$script:OfficeCliActualVersion'; minimum required is " +
+                "$OfficeCliMinimumVersion"
+            )
             return $false
         }
+        if ($reportedVersion -lt $OfficeCliMinimumVersion) {
+            $script:HealthError = (
+                "OfficeCLI reported $reportedVersion; minimum required is " +
+                "$OfficeCliMinimumVersion"
+            )
+            return $false
+        }
+        $healthStep = "OfficeCLI help"
         $null = Invoke-Captured -Executable $script:OfficeCliPath -Arguments @("help")
 
-        $script:PopplerActualVersion = (
+        $healthStep = "pdftotext -v"
+        $popplerOutput = @(
             Invoke-PixiTool -Tool "pdftotext" -ToolArguments @("-v")
-        )[0].Trim()
+        )
+        if ($popplerOutput.Count -eq 0) {
+            throw "$healthStep returned no output"
+        }
+        $script:PopplerActualVersion = $popplerOutput[0].Trim()
+        $healthStep = "pdftoppm -v"
         $null = Invoke-PixiTool -Tool "pdftoppm" -ToolArguments @("-v")
+        $healthStep = "pdfseparate -v"
         $null = Invoke-PixiTool -Tool "pdfseparate" -ToolArguments @("-v")
+        $healthStep = "pdfunite -v"
         $null = Invoke-PixiTool -Tool "pdfunite" -ToolArguments @("-v")
 
-        $script:TesseractActualVersion = (
+        $healthStep = "tesseract --version"
+        $tesseractOutput = @(
             Invoke-PixiTool -Tool "tesseract" -ToolArguments @("--version")
-        )[0].Trim()
+        )
+        if ($tesseractOutput.Count -eq 0) {
+            throw "$healthStep returned no output"
+        }
+        $script:TesseractActualVersion = $tesseractOutput[0].Trim()
+        $healthStep = "tesseract --list-langs"
         $languages = @(
             Invoke-PixiTool -Tool "tesseract" -ToolArguments @("--list-langs")
         )
         foreach ($language in $RequiredLanguages) {
             if ($languages -notcontains $language) {
+                $script:HealthError = "Tesseract language '$language' is missing"
                 return $false
             }
         }
         return $true
     }
     catch {
+        $script:HealthError = "$healthStep failed: $($_.Exception.Message)"
         return $false
     }
 }
@@ -175,7 +232,10 @@ function Test-ReusableRuntime {
         if ((Get-Sha256 -Path $script:LockPath) -ne $LockSha256) {
             return $false
         }
-        $pixiActual = (Invoke-Captured -Executable $script:PixiPath -Arguments @("--version"))[0]
+        $pixiActual = Get-FirstCapturedLine `
+            -Executable $script:PixiPath `
+            -Arguments @("--version") `
+            -Label "Pixi --version"
         if ($pixiActual -notlike "*$PixiVersion*") {
             return $false
         }
@@ -322,7 +382,7 @@ function Invoke-Install {
         $pixiUrl = "https://github.com/prefix-dev/pixi/releases/download/v0.76.2/pixi-aarch64-pc-windows-msvc.zip"
         $pixiSize = [int64]31131134
         $pixiSha256 = "cc7b2e50b2a81b6e46e55ee576d6319e03a9111400d4b35462a7088e32733c2e"
-        $officeCliUrl = "https://github.com/iOfficeAI/OfficeCLI/releases/download/v1.0.143/officecli-win-arm64.exe"
+        $officeCliUrl = "https://github.com/iOfficeAI/OfficeCLI/releases/download/v$OfficeCliReleaseVersion/officecli-win-arm64.exe"
         $officeCliSize = [int64]33800116
         $officeCliSha256 = "51baf511fe136ee216fcc13cf0da9d18078da42212b22805c3a81f4163a4d7b9"
     }
@@ -330,7 +390,7 @@ function Invoke-Install {
         $pixiUrl = "https://github.com/prefix-dev/pixi/releases/download/v0.76.2/pixi-x86_64-pc-windows-msvc.zip"
         $pixiSize = [int64]33438504
         $pixiSha256 = "8e948f6b67104be30509ab7d91ac1878fdb7920e57e8b433dbfb7297468b102d"
-        $officeCliUrl = "https://github.com/iOfficeAI/OfficeCLI/releases/download/v1.0.143/officecli-win-x64.exe"
+        $officeCliUrl = "https://github.com/iOfficeAI/OfficeCLI/releases/download/v$OfficeCliReleaseVersion/officecli-win-x64.exe"
         $officeCliSize = [int64]33357736
         $officeCliSha256 = "d4d4c10fced307e209744cf98a56b003a6e613424fd651b08469274704afd2c6"
     }
@@ -382,7 +442,7 @@ function Invoke-Install {
 
     Write-Stage 5 "Running OfficeCLI, Poppler, Tesseract, and OCR language health checks"
     if (-not (Test-Health)) {
-        Stop-Bootstrap "one or more local tool health checks failed"
+        Stop-Bootstrap $script:HealthError
     }
 
     Write-Stage 6 "Writing the verified user environment state"

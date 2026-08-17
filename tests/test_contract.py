@@ -110,10 +110,24 @@ class BootstrapContractTests(unittest.TestCase):
         )
         for pinned_path in (
             "releases/download/v0.76.2/",
-            "releases/download/v1.0.143/",
             "799cc8e9e88c3293a2f38e40bf0cad93703d663e",
         ):
             self.assertIn(pinned_path, combined)
+
+    def test_officecli_release_and_health_versions_are_separate(self) -> None:
+        macos = MACOS.read_text(encoding="utf-8")
+        windows = WINDOWS.read_text(encoding="utf-8")
+        self.assertIn('OFFICECLI_RELEASE_VERSION="1.0.143"', macos)
+        self.assertIn('OFFICECLI_MINIMUM_VERSION="1.0.143"', macos)
+        self.assertIn('$OfficeCliReleaseVersion = "1.0.143"', windows)
+        self.assertIn('$OfficeCliMinimumVersion = [Version]"1.0.143"', windows)
+        self.assertIn(
+            "releases/download/v${OFFICECLI_RELEASE_VERSION}/", macos
+        )
+        self.assertIn("releases/download/v$OfficeCliReleaseVersion/", windows)
+        self.assertNotIn('-notlike "*$OfficeCliVersion*"', windows)
+        self.assertIn("Get-FirstCapturedLine", windows)
+        self.assertIn("Get-ReportedVersion", windows)
 
     @unittest.skipUnless(platform.system() == "Darwin", "requires macOS")
     def test_macos_entrypoint_has_valid_zsh_syntax(self) -> None:
@@ -128,7 +142,7 @@ class BootstrapContractTests(unittest.TestCase):
             text=True,
         )
         payload = json.loads(result.stdout)
-        self.assertEqual(payload["bootstrap_version"], "1.0.2")
+        self.assertEqual(payload["bootstrap_version"], "1.0.3")
         self.assertEqual(payload["runtime_version"], "1.0.0")
         self.assertEqual(payload["os"], "macos")
         self.assertTrue(payload["user_scope_only"])

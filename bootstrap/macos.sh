@@ -3,10 +3,11 @@
 set -euo pipefail
 umask 077
 
-readonly BOOTSTRAP_VERSION="1.0.2"
+readonly BOOTSTRAP_VERSION="1.0.3"
 readonly RUNTIME_VERSION="1.0.0"
 readonly PIXI_VERSION="0.76.2"
-readonly OFFICECLI_VERSION="1.0.143"
+readonly OFFICECLI_RELEASE_VERSION="1.0.143"
+readonly OFFICECLI_MINIMUM_VERSION="1.0.143"
 readonly MINIMUM_FREE_SPACE_BYTES="1610612736"
 readonly REPOSITORY="Qing-Gege/hezha-client-bootstrap"
 readonly RUNTIME_REVISION="799cc8e9e88c3293a2f38e40bf0cad93703d663e"
@@ -154,26 +155,84 @@ run_pixi_tool() {
   "${PIXI_PATH}" run --locked --no-config --manifest-path "${MANIFEST_PATH}" -x "$@"
 }
 
+reported_version() {
+  local output="$1"
+  [[ "${output}" =~ '([0-9]+\.[0-9]+\.[0-9]+)' ]] || return 1
+  print -r -- "${match[1]}"
+}
+
+version_at_least() {
+  local actual="$1"
+  local minimum="$2"
+  local index
+  local -a actual_parts
+  local -a minimum_parts
+  actual_parts=("${(@s:.:)actual}")
+  minimum_parts=("${(@s:.:)minimum}")
+  [[ "${#actual_parts}" -eq 3 && "${#minimum_parts}" -eq 3 ]] || return 1
+  for index in 1 2 3; do
+    (( actual_parts[index] > minimum_parts[index] )) && return 0
+    (( actual_parts[index] < minimum_parts[index] )) && return 1
+  done
+  return 0
+}
+
 health_check() {
   local output
   local language
+  local officecli_reported_version
 
-  OFFICECLI_ACTUAL_VERSION="$("${OFFICECLI_PATH}" --version 2>&1 | /usr/bin/head -n 1 | /usr/bin/tr -d '\r')"
-  [[ "${OFFICECLI_ACTUAL_VERSION}" == *"${OFFICECLI_VERSION}"* ]] \
-    || return 1
-  "${OFFICECLI_PATH}" help >/dev/null 2>&1 || return 1
+  HEALTH_ERROR=""
 
-  output="$(run_pixi_tool pdftotext -v 2>&1)" || return 1
+  OFFICECLI_ACTUAL_VERSION="$("${OFFICECLI_PATH}" --version 2>&1 | /usr/bin/head -n 1 | /usr/bin/tr -d '\r')" || {
+    HEALTH_ERROR="OfficeCLI --version failed"
+    return 1
+  }
+  officecli_reported_version="$(reported_version "${OFFICECLI_ACTUAL_VERSION}")" || {
+    HEALTH_ERROR="OfficeCLI returned an unrecognized version '${OFFICECLI_ACTUAL_VERSION}'; minimum required is ${OFFICECLI_MINIMUM_VERSION}"
+    return 1
+  }
+  version_at_least "${officecli_reported_version}" "${OFFICECLI_MINIMUM_VERSION}" || {
+    HEALTH_ERROR="OfficeCLI reported ${officecli_reported_version}; minimum required is ${OFFICECLI_MINIMUM_VERSION}"
+    return 1
+  }
+  "${OFFICECLI_PATH}" help >/dev/null 2>&1 || {
+    HEALTH_ERROR="OfficeCLI help failed"
+    return 1
+  }
+
+  output="$(run_pixi_tool pdftotext -v 2>&1)" || {
+    HEALTH_ERROR="pdftotext -v failed"
+    return 1
+  }
   POPPLER_ACTUAL_VERSION="$(print -r -- "${output}" | /usr/bin/head -n 1 | /usr/bin/tr -d '\r')"
-  run_pixi_tool pdftoppm -v >/dev/null 2>&1 || return 1
-  run_pixi_tool pdfseparate -v >/dev/null 2>&1 || return 1
-  run_pixi_tool pdfunite -v >/dev/null 2>&1 || return 1
+  run_pixi_tool pdftoppm -v >/dev/null 2>&1 || {
+    HEALTH_ERROR="pdftoppm -v failed"
+    return 1
+  }
+  run_pixi_tool pdfseparate -v >/dev/null 2>&1 || {
+    HEALTH_ERROR="pdfseparate -v failed"
+    return 1
+  }
+  run_pixi_tool pdfunite -v >/dev/null 2>&1 || {
+    HEALTH_ERROR="pdfunite -v failed"
+    return 1
+  }
 
-  output="$(run_pixi_tool tesseract --version 2>&1)" || return 1
+  output="$(run_pixi_tool tesseract --version 2>&1)" || {
+    HEALTH_ERROR="tesseract --version failed"
+    return 1
+  }
   TESSERACT_ACTUAL_VERSION="$(print -r -- "${output}" | /usr/bin/head -n 1 | /usr/bin/tr -d '\r')"
-  output="$(run_pixi_tool tesseract --list-langs 2>&1)" || return 1
+  output="$(run_pixi_tool tesseract --list-langs 2>&1)" || {
+    HEALTH_ERROR="tesseract --list-langs failed"
+    return 1
+  }
   for language in "${REQUIRED_LANGUAGES[@]}"; do
-    print -r -- "${output}" | /usr/bin/grep -qxF "${language}" || return 1
+    print -r -- "${output}" | /usr/bin/grep -qxF "${language}" || {
+      HEALTH_ERROR="Tesseract language '${language}' is missing"
+      return 1
+    }
   done
 }
 
@@ -230,7 +289,7 @@ install() {
       pixi_url="https://github.com/prefix-dev/pixi/releases/download/v0.76.2/pixi-aarch64-apple-darwin.tar.gz"
       pixi_size="28699668"
       pixi_sha256="621c771029ecc785dcab3acf1db4671b8b2896e87c87d789160f8ed0d871335c"
-      officecli_url="https://github.com/iOfficeAI/OfficeCLI/releases/download/v1.0.143/officecli-mac-arm64"
+      officecli_url="https://github.com/iOfficeAI/OfficeCLI/releases/download/v${OFFICECLI_RELEASE_VERSION}/officecli-mac-arm64"
       officecli_size="33740304"
       officecli_sha256="2f158d46f9b6c5eb0dfe4eb02038114001e17acc47b67347417c56dcf9659096"
       ;;
@@ -239,7 +298,7 @@ install() {
       pixi_url="https://github.com/prefix-dev/pixi/releases/download/v0.76.2/pixi-x86_64-apple-darwin.tar.gz"
       pixi_size="32000272"
       pixi_sha256="e4b33400b8aa86b332e52f8eaa30590a78881998d897973439b382ef57ef0458"
-      officecli_url="https://github.com/iOfficeAI/OfficeCLI/releases/download/v1.0.143/officecli-mac-x64"
+      officecli_url="https://github.com/iOfficeAI/OfficeCLI/releases/download/v${OFFICECLI_RELEASE_VERSION}/officecli-mac-x64"
       officecli_size="34680704"
       officecli_sha256="693d243db616c74705fec9d92fdfc8a3db36acfcea378edb7264c2a30d339d9c"
       ;;
@@ -313,7 +372,7 @@ install() {
     --manifest-path "${MANIFEST_PATH}"
 
   progress 5 "Running OfficeCLI, Poppler, Tesseract, and OCR language health checks"
-  health_check || fail "one or more local tool health checks failed"
+  health_check || fail "${HEALTH_ERROR:-one or more local tool health checks failed}"
 
   progress 6 "Writing the verified user environment state"
   write_state "false"

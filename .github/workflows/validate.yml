@@ -77,3 +77,30 @@ jobs:
           if (-not $failed) {
             throw "non-zero native exit code was accepted"
           }
+      - name: Verify pinned Windows OfficeCLI behavior
+        shell: powershell
+        run: |
+          . ./bootstrap/windows.ps1 Inspect | Out-Null
+          $path = Join-Path $env:RUNNER_TEMP "officecli-win-x64.exe"
+          Invoke-WebRequest `
+            -UseBasicParsing `
+            -Uri "https://github.com/iOfficeAI/OfficeCLI/releases/download/v1.0.143/officecli-win-x64.exe" `
+            -OutFile $path
+          if ((Get-Item -LiteralPath $path).Length -ne 33357736) {
+            throw "OfficeCLI size mismatch"
+          }
+          if ((Get-Sha256 -Path $path) -ne "d4d4c10fced307e209744cf98a56b003a6e613424fd651b08469274704afd2c6") {
+            throw "OfficeCLI SHA-256 mismatch"
+          }
+          $reported = Get-FirstCapturedLine `
+            -Executable $path `
+            -Arguments @("--version") `
+            -Label "OfficeCLI --version"
+          $version = Get-ReportedVersion -Output $reported
+          if ($null -eq $version -or $version -lt $OfficeCliMinimumVersion) {
+            throw "OfficeCLI reported incompatible version: $reported"
+          }
+          if ($version -ne [Version]"1.0.144") {
+            throw "OfficeCLI pinned Windows asset changed reported version: $reported"
+          }
+          $null = Invoke-Captured -Executable $path -Arguments @("help")

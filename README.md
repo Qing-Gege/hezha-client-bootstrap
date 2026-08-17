@@ -40,6 +40,12 @@ The bootstrap process:
 The calling Agent may configure a user-level MCP connection only after the
 bootstrap exits successfully.
 
+The OfficeCLI release tag and asset digest stay pinned exactly. Health checks
+parse the binary's reported semantic version and require it to be at least the
+declared minimum, because platform assets from one release may report a newer
+compatible build version. Health failures name the failing command or missing
+language instead of collapsing every cause into one generic message.
+
 ## Interfaces
 
 ```text
