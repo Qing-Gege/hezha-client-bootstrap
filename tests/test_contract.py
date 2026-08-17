@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MACOS = ROOT / "bootstrap" / "macos.sh"
 WINDOWS = ROOT / "bootstrap" / "windows.ps1"
 RUNTIME = ROOT / "runtime" / "1.0.0"
+CATALOG = RUNTIME / "bootstrap.json"
 
 
 def sha256(path: Path) -> str:
@@ -20,6 +21,27 @@ def sha256(path: Path) -> str:
 
 
 class BootstrapContractTests(unittest.TestCase):
+    def test_catalog_pins_published_entrypoints_and_runtime_files(self) -> None:
+        catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
+        self.assertEqual(catalog["schema_version"], 1)
+        self.assertEqual(catalog["bootstrap_version"], "1.0.0")
+        self.assertEqual(catalog["runtime_version"], "1.0.0")
+        self.assertFalse(catalog["policy"]["publishes_custom_binary"])
+        self.assertTrue(catalog["policy"]["silent_preflight"])
+        entrypoints = {item["os"]: item for item in catalog["entrypoints"]}
+        self.assertEqual(set(entrypoints), {"macos", "windows"})
+        for os_name, path in (("macos", MACOS), ("windows", WINDOWS)):
+            item = entrypoints[os_name]
+            self.assertEqual(item["size"], path.stat().st_size)
+            self.assertEqual(item["sha256"], sha256(path))
+            self.assertIn(catalog["source_commit"], item["url"])
+            self.assertNotIn("/latest/", item["url"])
+        for item in catalog["runtime_files"]:
+            path = RUNTIME / item["name"]
+            self.assertEqual(item["size"], path.stat().st_size)
+            self.assertEqual(item["sha256"], sha256(path))
+            self.assertIn(catalog["runtime_revision"], item["url"])
+
     def test_runtime_files_match_pinned_script_contract(self) -> None:
         expected = {
             "pixi.toml": (

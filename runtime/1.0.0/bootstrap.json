@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "bootstrap_version": "1.0.0",
+  "runtime_version": "1.0.0",
+  "source_commit": "967eee32a4d9c856c411ffc8f238f1eaa3212751",
+  "runtime_revision": "799cc8e9e88c3293a2f38e40bf0cad93703d663e",
+  "policy": {
+    "user_scope_only": true,
+    "silent_preflight": true,
+    "requires_sha256": true,
+    "modifies_path": false,
+    "requires_admin": false,
+    "publishes_custom_binary": false,
+    "third_party_binaries_are_externally_hosted": true
+  },
+  "entrypoints": [
+    {
+      "os": "macos",
+      "shell": "/bin/zsh",
+      "filename": "macos.sh",
+      "url": "https://raw.githubusercontent.com/Qing-Gege/hezha-client-bootstrap/967eee32a4d9c856c411ffc8f238f1eaa3212751/bootstrap/macos.sh",
+      "size": 12130,
+      "sha256": "728f52ddc0a69968a583f86928dd5f023825ebd4471d87a851c64ba09581391d"
+    },
+    {
+      "os": "windows",
+      "shell": "powershell.exe",
+      "filename": "windows.ps1",
+      "url": "https://raw.githubusercontent.com/Qing-Gege/hezha-client-bootstrap/967eee32a4d9c856c411ffc8f238f1eaa3212751/bootstrap/windows.ps1",
+      "size": 14434,
+      "sha256": "9c7265aac524150ad2c7cefbb3d3cef0ed489941fa2c99d1aeb6b696af94eaac"
+    }
+  ],
+  "runtime_files": [
+    {
+      "name": "pixi.toml",
+      "url": "https://raw.githubusercontent.com/Qing-Gege/hezha-client-bootstrap/799cc8e9e88c3293a2f38e40bf0cad93703d663e/runtime/1.0.0/pixi.toml",
+      "size": 509,
+      "sha256": "43e641a0feab37c85f57d1fc578a7b990a59193cff8acb3e11594dd6df1b2428"
+    },
+    {
+      "name": "pixi.lock",
+      "url": "https://raw.githubusercontent.com/Qing-Gege/hezha-client-bootstrap/799cc8e9e88c3293a2f38e40bf0cad93703d663e/runtime/1.0.0/pixi.lock",
+      "size": 82251,
+      "sha256": "8e5f2fbe189c18ca9a4e42ab94a1eaf457c44b8b1e4534c6745ab6b91834515c"
+    }
+  ]
+}
+
