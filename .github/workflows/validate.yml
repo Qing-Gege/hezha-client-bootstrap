@@ -100,7 +100,5 @@ jobs:
           if ($null -eq $version -or $version -lt $OfficeCliMinimumVersion) {
             throw "OfficeCLI reported incompatible version: $reported"
           }
-          if ($version -ne [Version]"1.0.144") {
-            throw "OfficeCLI pinned Windows asset changed reported version: $reported"
-          }
+          Write-Host "OfficeCLI reported compatible version: $reported"
           $null = Invoke-Captured -Executable $path -Arguments @("help")

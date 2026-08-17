@@ -3,7 +3,7 @@
 set -euo pipefail
 umask 077
 
-readonly BOOTSTRAP_VERSION="1.0.3"
+readonly BOOTSTRAP_VERSION="1.0.4"
 readonly RUNTIME_VERSION="1.0.0"
 readonly PIXI_VERSION="0.76.2"
 readonly OFFICECLI_RELEASE_VERSION="1.0.143"
