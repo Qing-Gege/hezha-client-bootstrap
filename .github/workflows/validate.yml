@@ -71,6 +71,9 @@ jobs:
               throw
             }
           }
+          finally {
+            $global:LASTEXITCODE = 0
+          }
           if (-not $failed) {
             throw "non-zero native exit code was accepted"
           }
