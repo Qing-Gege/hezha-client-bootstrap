@@ -6,7 +6,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$BootstrapVersion = "1.0.1"
+$BootstrapVersion = "1.0.2"
 $RuntimeVersion = "1.0.0"
 $PixiVersion = "0.76.2"
 $OfficeCliVersion = "1.0.143"
@@ -92,9 +92,21 @@ function Install-AtomicFile {
 
 function Invoke-Captured {
     param([string]$Executable, [string[]]$Arguments)
-    $output = @(& $Executable @Arguments 2>&1 | ForEach-Object { $_.ToString() })
-    if ($LASTEXITCODE -ne 0) {
-        throw "command failed"
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        $global:LASTEXITCODE = $null
+        $output = @(& $Executable @Arguments 2>&1 | ForEach-Object { $_.ToString() })
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+    if ($null -eq $exitCode) {
+        throw "command could not be started"
+    }
+    if ($exitCode -ne 0) {
+        throw "command failed with exit code $exitCode"
     }
     return $output
 }

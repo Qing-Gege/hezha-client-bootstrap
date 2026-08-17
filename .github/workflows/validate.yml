@@ -44,7 +44,7 @@ jobs:
       - name: Inspect without writes
         shell: powershell
         run: powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File bootstrap/windows.ps1 Inspect
-      - name: Preserve native stderr when exit code is zero
+      - name: Preserve native stderr and respect native exit codes
         shell: powershell
         run: |
           if ($PSVersionTable.PSVersion.Major -ne 5) {
@@ -58,4 +58,19 @@ jobs:
           )
           if ($output.Count -ne 1 -or $output[0].Trim() -ne "simulated success") {
             throw "native stderr output was not captured"
+          }
+          $failed = $false
+          try {
+            Invoke-Captured `
+              -Executable "$env:SystemRoot\System32\cmd.exe" `
+              -Arguments @("/d", "/c", "echo simulated failure 1>&2 & exit /b 23")
+          }
+          catch {
+            $failed = $true
+            if ($_.Exception.Message -ne "command failed with exit code 23") {
+              throw
+            }
+          }
+          if (-not $failed) {
+            throw "non-zero native exit code was accepted"
           }
