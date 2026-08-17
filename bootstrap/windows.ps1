@@ -6,7 +6,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$BootstrapVersion = "1.0.0"
+$BootstrapVersion = "1.0.1"
 $RuntimeVersion = "1.0.0"
 $PixiVersion = "0.76.2"
 $OfficeCliVersion = "1.0.143"

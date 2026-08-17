@@ -128,7 +128,7 @@ class BootstrapContractTests(unittest.TestCase):
             text=True,
         )
         payload = json.loads(result.stdout)
-        self.assertEqual(payload["bootstrap_version"], "1.0.0")
+        self.assertEqual(payload["bootstrap_version"], "1.0.1")
         self.assertEqual(payload["runtime_version"], "1.0.0")
         self.assertEqual(payload["os"], "macos")
         self.assertTrue(payload["user_scope_only"])
