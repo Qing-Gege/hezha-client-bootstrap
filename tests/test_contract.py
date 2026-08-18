@@ -24,7 +24,7 @@ class BootstrapContractTests(unittest.TestCase):
     def test_catalog_pins_published_entrypoints_and_runtime_files(self) -> None:
         catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
         self.assertEqual(catalog["schema_version"], 1)
-        self.assertEqual(catalog["bootstrap_version"], "1.0.4")
+        self.assertEqual(catalog["bootstrap_version"], "1.0.5")
         self.assertEqual(catalog["runtime_version"], "1.0.0")
         self.assertFalse(catalog["policy"]["publishes_custom_binary"])
         self.assertTrue(catalog["policy"]["silent_preflight"])
@@ -82,7 +82,6 @@ class BootstrapContractTests(unittest.TestCase):
             "releases/latest",
             "brew install",
             "sudo ",
-            "SetEnvironmentVariable",
             "Authorization: Bearer",
             "LEGAL_MCP_",
             "run-post-link-scripts",
@@ -97,6 +96,8 @@ class BootstrapContractTests(unittest.TestCase):
             "chi_tra",
             "Developer ID Application:",
             "minimum",
+            "officecli_command_path",
+            "path_entry",
         ):
             self.assertIn(required, combined)
         urls = re.findall(r'https://[^"\s]+', combined)
@@ -129,6 +130,20 @@ class BootstrapContractTests(unittest.TestCase):
         self.assertIn("Get-FirstCapturedLine", windows)
         self.assertIn("Get-ReportedVersion", windows)
 
+    def test_officecli_is_published_to_a_user_scoped_path(self) -> None:
+        macos = MACOS.read_text(encoding="utf-8")
+        windows = WINDOWS.read_text(encoding="utf-8")
+        self.assertIn('BIN_DIR="${BASE_DIR}/bin"', macos)
+        self.assertIn('local profile="${HOME}/.zprofile"', macos)
+        self.assertIn("/bin/launchctl setenv PATH", macos)
+        self.assertIn('$script:BinDir = Join-Path $baseDir "bin"', windows)
+        self.assertIn(
+            '[Environment]::SetEnvironmentVariable("Path", $updatedUserPath, "User")',
+            windows,
+        )
+        self.assertIn("Publish-OfficeCliCommand", windows)
+        self.assertIn("publish_officecli_command", macos)
+
     @unittest.skipUnless(platform.system() == "Darwin", "requires macOS")
     def test_macos_entrypoint_has_valid_zsh_syntax(self) -> None:
         subprocess.run(["/bin/zsh", "-n", str(MACOS)], check=True)
@@ -142,11 +157,12 @@ class BootstrapContractTests(unittest.TestCase):
             text=True,
         )
         payload = json.loads(result.stdout)
-        self.assertEqual(payload["bootstrap_version"], "1.0.4")
+        self.assertEqual(payload["bootstrap_version"], "1.0.5")
         self.assertEqual(payload["runtime_version"], "1.0.0")
         self.assertEqual(payload["os"], "macos")
         self.assertTrue(payload["user_scope_only"])
-        self.assertFalse(payload["modifies_path"])
+        self.assertTrue(payload["modifies_path"])
+        self.assertEqual(payload["path_scope"], "user")
         self.assertFalse(payload["requires_admin"])
         self.assertEqual(result.stderr, "")
 

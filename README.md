@@ -34,8 +34,10 @@ The bootstrap process:
 5. installs the locked Pixi environment without post-link scripts;
 6. checks OfficeCLI, four Poppler commands, Tesseract, and
    `eng/chi_sim/chi_tra/osd`;
-7. atomically writes the user-scoped `environment.json` and removes its
-   rebuildable cache.
+7. publishes the verified OfficeCLI into the stable user-scoped
+   `LegalSkills/bin` directory, prepends that directory to the user's PATH,
+   and atomically writes `environment.json`;
+8. removes the rebuildable download and package cache.
 
 The calling Agent may configure a user-level MCP connection only after the
 bootstrap exits successfully.
@@ -45,6 +47,13 @@ parse the binary's reported semantic version and require it to be at least the
 declared minimum, because platform assets from one release may report a newer
 compatible build version. Health failures name the failing command or missing
 language instead of collapsing every cause into one generic message.
+
+On macOS, the PATH entry is persisted in `~/.zprofile` and synchronized to the
+current login GUI session. On Windows, it is persisted in the User environment
+and synchronized to the bootstrap process. Healthy runtime reuse also repairs
+the stable OfficeCLI command and PATH entry. Pixi, Poppler, and Tesseract remain
+behind the absolute command arrays in `environment.json`; they are not exposed
+through PATH.
 
 ## Interfaces
 

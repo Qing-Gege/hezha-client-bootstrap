@@ -102,3 +102,40 @@ jobs:
           }
           Write-Host "OfficeCLI reported compatible version: $reported"
           $null = Invoke-Captured -Executable $path -Arguments @("help")
+      - name: Publish OfficeCLI to User PATH and restore runner state
+        shell: powershell
+        run: |
+          . ./bootstrap/windows.ps1 Inspect | Out-Null
+          $originalUserPath = [Environment]::GetEnvironmentVariable("Path", "User")
+          $originalProcessPath = $env:Path
+          $testRoot = Join-Path $env:RUNNER_TEMP "legalskills-path-$PID"
+          $script:BinDir = Join-Path $testRoot "bin"
+          $script:OfficeCliCommandPath = Join-Path $script:BinDir "officecli.exe"
+          $script:OfficeCliPath = Join-Path $env:RUNNER_TEMP "officecli-win-x64.exe"
+          $script:OfficeCliActualVersion = Get-FirstCapturedLine `
+            -Executable $script:OfficeCliPath `
+            -Arguments @("--version") `
+            -Label "OfficeCLI --version"
+          try {
+            Publish-OfficeCliCommand
+            Publish-OfficeCliCommand
+            if ((Get-Sha256 -Path $script:OfficeCliCommandPath) -ne (Get-Sha256 -Path $script:OfficeCliPath)) {
+              throw "published OfficeCLI digest mismatch"
+            }
+            $resolved = (Get-Command officecli.exe -ErrorAction Stop).Source
+            if ($resolved -ne $script:OfficeCliCommandPath) {
+              throw "OfficeCLI did not resolve from the published user path: $resolved"
+            }
+            $userEntries = @(
+              [Environment]::GetEnvironmentVariable("Path", "User") -split ";" |
+                Where-Object { $_.TrimEnd("\") -ieq $script:BinDir.TrimEnd("\") }
+            )
+            if ($userEntries.Count -ne 1) {
+              throw "OfficeCLI user path entry is not idempotent"
+            }
+          }
+          finally {
+            [Environment]::SetEnvironmentVariable("Path", $originalUserPath, "User")
+            $env:Path = $originalProcessPath
+            Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue
+          }

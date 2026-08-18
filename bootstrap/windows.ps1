@@ -6,7 +6,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$BootstrapVersion = "1.0.4"
+$BootstrapVersion = "1.0.5"
 $RuntimeVersion = "1.0.0"
 $PixiVersion = "0.76.2"
 $OfficeCliReleaseVersion = "1.0.143"
@@ -89,6 +89,70 @@ function Install-AtomicFile {
     else {
         [IO.File]::Move($Source, $Destination)
     }
+}
+
+function Add-PathEntry {
+    param([AllowNull()][string]$PathValue, [string]$Entry)
+    $entries = @()
+    if (-not [string]::IsNullOrWhiteSpace($PathValue)) {
+        $entries = @(
+            $PathValue -split ";" |
+                ForEach-Object { $_.Trim() } |
+                Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+        )
+    }
+    $normalizedEntry = $Entry.TrimEnd("\")
+    foreach ($existing in $entries) {
+        if ($existing.TrimEnd("\") -ieq $normalizedEntry) {
+            return ($entries -join ";")
+        }
+    }
+    return (@($Entry) + $entries) -join ";"
+}
+
+function Publish-OfficeCliCommand {
+    if (Test-Path -LiteralPath $script:BinDir) {
+        $attributes = (Get-Item -LiteralPath $script:BinDir -Force).Attributes
+        if (($attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            Stop-Bootstrap "OfficeCLI command directory must not be a reparse point"
+        }
+    }
+    $null = New-Item -ItemType Directory -Path $script:BinDir -Force
+    if (Test-Path -LiteralPath $script:OfficeCliCommandPath) {
+        $commandAttributes = (
+            Get-Item -LiteralPath $script:OfficeCliCommandPath -Force
+        ).Attributes
+        if (($commandAttributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            Stop-Bootstrap "OfficeCLI command path must not be a reparse point"
+        }
+    }
+    $runtimeSha256 = Get-Sha256 -Path $script:OfficeCliPath
+    if (
+        (-not (Test-Path -LiteralPath $script:OfficeCliCommandPath -PathType Leaf)) -or
+        ((Get-Sha256 -Path $script:OfficeCliCommandPath) -ne $runtimeSha256)
+    ) {
+        $staged = "$script:OfficeCliCommandPath.new.$PID"
+        Copy-Item -LiteralPath $script:OfficeCliPath -Destination $staged -Force
+        if ((Get-Sha256 -Path $staged) -ne $runtimeSha256) {
+            Remove-Item -LiteralPath $staged -Force -ErrorAction SilentlyContinue
+            Stop-Bootstrap "published OfficeCLI SHA-256 mismatch"
+        }
+        Install-AtomicFile -Source $staged -Destination $script:OfficeCliCommandPath
+    }
+    $publishedVersion = Get-FirstCapturedLine `
+        -Executable $script:OfficeCliCommandPath `
+        -Arguments @("--version") `
+        -Label "Published OfficeCLI --version"
+    if ($publishedVersion -ne $script:OfficeCliActualVersion) {
+        Stop-Bootstrap "published OfficeCLI version mismatch"
+    }
+
+    $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+    $updatedUserPath = Add-PathEntry -PathValue $userPath -Entry $script:BinDir
+    if ($updatedUserPath -cne $userPath) {
+        [Environment]::SetEnvironmentVariable("Path", $updatedUserPath, "User")
+    }
+    $env:Path = Add-PathEntry -PathValue $env:Path -Entry $script:BinDir
 }
 
 function Invoke-Captured {
@@ -270,6 +334,8 @@ function Write-State {
         pixi_path = $script:PixiPath
         manifest_path = $script:ManifestPath
         officecli_path = $script:OfficeCliPath
+        officecli_command_path = $script:OfficeCliCommandPath
+        path_entry = $script:BinDir
         commands = [ordered]@{
             officecli = @($script:OfficeCliPath)
             pdftotext = @($runPrefix + "pdftotext")
@@ -326,7 +392,8 @@ function Invoke-Inspect {
         os_version = $version.ToString()
         machine = Get-NativeArchitecture
         user_scope_only = $true
-        modifies_path = $false
+        modifies_path = $true
+        path_scope = "user"
         requires_admin = $false
     } | ConvertTo-Json -Compress
 }
@@ -351,12 +418,14 @@ function Invoke-Install {
     $baseDir = Join-Path $env:LOCALAPPDATA "LegalSkills"
     $script:InstallRoot = Join-Path $baseDir "runtime\$RuntimeVersion"
     $script:StateFile = Join-Path $baseDir "environment.json"
+    $script:BinDir = Join-Path $baseDir "bin"
     $script:PixiPath = Join-Path $script:InstallRoot "pixi.exe"
     $script:OfficeCliPath = Join-Path $script:InstallRoot "officecli.exe"
+    $script:OfficeCliCommandPath = Join-Path $script:BinDir "officecli.exe"
     $script:ManifestPath = Join-Path $script:InstallRoot "pixi.toml"
     $script:LockPath = Join-Path $script:InstallRoot "pixi.lock"
 
-    foreach ($path in @($baseDir, $script:InstallRoot)) {
+    foreach ($path in @($baseDir, $script:InstallRoot, $script:BinDir)) {
         if (Test-Path -LiteralPath $path) {
             $attributes = (Get-Item -LiteralPath $path -Force).Attributes
             if (($attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
@@ -367,7 +436,8 @@ function Invoke-Install {
     $null = New-Item -ItemType Directory -Path $script:InstallRoot -Force
 
     if (Test-ReusableRuntime) {
-        Write-Stage 6 "Existing runtime is healthy; no download or reinstall was needed"
+        Write-Stage 6 "Publishing OfficeCLI to the user PATH and refreshing environment state"
+        Publish-OfficeCliCommand
         Write-State -Reused $true
         return
     }
@@ -445,7 +515,8 @@ function Invoke-Install {
         Stop-Bootstrap $script:HealthError
     }
 
-    Write-Stage 6 "Writing the verified user environment state"
+    Write-Stage 6 "Publishing OfficeCLI to the user PATH and writing environment state"
+    Publish-OfficeCliCommand
     Write-State -Reused $false
 }
 

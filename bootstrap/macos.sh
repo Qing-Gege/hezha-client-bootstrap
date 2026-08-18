@@ -3,7 +3,7 @@
 set -euo pipefail
 umask 077
 
-readonly BOOTSTRAP_VERSION="1.0.4"
+readonly BOOTSTRAP_VERSION="1.0.5"
 readonly RUNTIME_VERSION="1.0.0"
 readonly PIXI_VERSION="0.76.2"
 readonly OFFICECLI_RELEASE_VERSION="1.0.143"
@@ -21,6 +21,7 @@ readonly LOCK_SHA256="8e5f2fbe189c18ca9a4e42ab94a1eaf457c44b8b1e4534c6745ab6b918
 readonly REQUIRED_LANGUAGES=(eng chi_sim chi_tra osd)
 
 WORK_DIR=""
+PATH_STAGED=""
 
 fail() {
   print -u2 -r -- "LegalSkills bootstrap failed: $1"
@@ -34,6 +35,9 @@ progress() {
 cleanup() {
   if [[ -n "${WORK_DIR}" && -d "${WORK_DIR}" ]]; then
     /bin/rm -rf -- "${WORK_DIR}"
+  fi
+  if [[ -n "${PATH_STAGED}" && -f "${PATH_STAGED}" ]]; then
+    /bin/rm -f -- "${PATH_STAGED}"
   fi
 }
 
@@ -97,6 +101,41 @@ atomic_replace() {
   /bin/mv -f -- "${staged}" "${destination}"
 }
 
+publish_officecli_command() {
+  local profile="${HOME}/.zprofile"
+  local profile_line='export PATH="$HOME/Library/Application Support/LegalSkills/bin:$PATH"'
+
+  [[ ! -L "${BIN_DIR}" ]] || fail "OfficeCLI command directory must not be a symbolic link"
+  /bin/mkdir -p -- "${BIN_DIR}"
+  [[ ! -L "${OFFICECLI_COMMAND_PATH}" ]] \
+    || fail "OfficeCLI command path must not be a symbolic link"
+  if [[ ! -x "${OFFICECLI_COMMAND_PATH}" ]] \
+    || [[ "$(sha256 "${OFFICECLI_COMMAND_PATH}")" != "$(sha256 "${OFFICECLI_PATH}")" ]]; then
+    PATH_STAGED="${BIN_DIR}/.officecli.new.$$"
+    /bin/cp -p -- "${OFFICECLI_PATH}" "${PATH_STAGED}"
+    /bin/chmod 700 "${PATH_STAGED}"
+    [[ "$(file_size "${PATH_STAGED}")" == "$(file_size "${OFFICECLI_PATH}")" ]] \
+      || fail "published OfficeCLI size mismatch"
+    [[ "$(sha256 "${PATH_STAGED}")" == "$(sha256 "${OFFICECLI_PATH}")" ]] \
+      || fail "published OfficeCLI SHA-256 mismatch"
+    verify_developer_id "${PATH_STAGED}" "52JQX2HUSC" "Published OfficeCLI"
+    /bin/mv -f -- "${PATH_STAGED}" "${OFFICECLI_COMMAND_PATH}"
+    PATH_STAGED=""
+  fi
+  verify_developer_id "${OFFICECLI_COMMAND_PATH}" "52JQX2HUSC" "Published OfficeCLI"
+
+  if [[ ! -f "${profile}" ]] || ! /usr/bin/grep -qxF "${profile_line}" "${profile}"; then
+    print -r -- "" >>"${profile}"
+    print -r -- "${profile_line}" >>"${profile}"
+  fi
+  case ":${PATH:-}:" in
+    *":${BIN_DIR}:"*) ;;
+    *) export PATH="${BIN_DIR}:${PATH:-}" ;;
+  esac
+  /bin/launchctl setenv PATH "${PATH}" \
+    || fail "could not publish OfficeCLI PATH to the current login session"
+}
+
 json_result() {
   /usr/bin/osascript -l JavaScript \
     -e 'function run(a) { return JSON.stringify({status:a[0], reused:a[1] === "true", runtime_version:a[2], state_file:a[3]}); }' \
@@ -113,7 +152,7 @@ write_state() {
     -e '
 function run(a) {
   const [runtimeVersion, arch, verifiedAt, pixi, manifest, officecli,
-    officeVersion, popplerVersion, tesseractVersion] = a;
+    officecliCommand, pathEntry, officeVersion, popplerVersion, tesseractVersion] = a;
   const prefix = [pixi, "run", "--locked", "--no-config", "--manifest-path", manifest, "-x"];
   return JSON.stringify({
     schema_version: 1,
@@ -124,6 +163,8 @@ function run(a) {
     pixi_path: pixi,
     manifest_path: manifest,
     officecli_path: officecli,
+    officecli_command_path: officecliCommand,
+    path_entry: pathEntry,
     commands: {
       officecli: [officecli],
       pdftotext: prefix.concat(["pdftotext"]),
@@ -141,7 +182,8 @@ function run(a) {
   }, null, 2);
 }' \
     "${RUNTIME_VERSION}" "${ARCH}" "${verified_at}" "${PIXI_PATH}" \
-    "${MANIFEST_PATH}" "${OFFICECLI_PATH}" "${OFFICECLI_ACTUAL_VERSION}" \
+    "${MANIFEST_PATH}" "${OFFICECLI_PATH}" "${OFFICECLI_COMMAND_PATH}" \
+    "${BIN_DIR}" "${OFFICECLI_ACTUAL_VERSION}" \
     "${POPPLER_ACTUAL_VERSION}" "${TESSERACT_ACTUAL_VERSION}" >"${state_tmp}"
   /usr/bin/osascript -l JavaScript \
     -e 'ObjC.import("Foundation"); function run(a) { const d=$.NSData.dataWithContentsOfFile(a[0]); if (!d) throw new Error("read failed"); const s=$.NSString.alloc.initWithDataEncoding(d,$.NSUTF8StringEncoding).js; const v=JSON.parse(s); if (v.schema_version !== 1) throw new Error("schema failed"); return "ok"; }' \
@@ -254,7 +296,7 @@ inspect() {
   os_version="$(/usr/bin/sw_vers -productVersion 2>/dev/null || true)"
   machine="$(/usr/bin/uname -m 2>/dev/null || true)"
   /usr/bin/osascript -l JavaScript \
-    -e 'function run(a) { return JSON.stringify({bootstrap_version:a[0], runtime_version:a[1], os:"macos", os_version:a[2], machine:a[3], user_scope_only:true, modifies_path:false, requires_admin:false}); }' \
+    -e 'function run(a) { return JSON.stringify({bootstrap_version:a[0], runtime_version:a[1], os:"macos", os_version:a[2], machine:a[3], user_scope_only:true, modifies_path:true, path_scope:"user", requires_admin:false}); }' \
     "${BOOTSTRAP_VERSION}" "${RUNTIME_VERSION}" "${os_version}" "${machine}"
 }
 
@@ -309,16 +351,20 @@ install() {
   BASE_DIR="${HOME}/Library/Application Support/LegalSkills"
   INSTALL_ROOT="${BASE_DIR}/runtime/${RUNTIME_VERSION}"
   STATE_FILE="${BASE_DIR}/environment.json"
+  BIN_DIR="${BASE_DIR}/bin"
   PIXI_PATH="${INSTALL_ROOT}/pixi"
   OFFICECLI_PATH="${INSTALL_ROOT}/officecli"
+  OFFICECLI_COMMAND_PATH="${BIN_DIR}/officecli"
   MANIFEST_PATH="${INSTALL_ROOT}/pixi.toml"
   LOCK_PATH="${INSTALL_ROOT}/pixi.lock"
 
-  [[ ! -L "${BASE_DIR}" && ! -L "${INSTALL_ROOT}" ]] || fail "install path must not be a symbolic link"
+  [[ ! -L "${BASE_DIR}" && ! -L "${INSTALL_ROOT}" && ! -L "${BIN_DIR}" ]] \
+    || fail "install path must not be a symbolic link"
   /bin/mkdir -p -- "${INSTALL_ROOT}"
 
   if can_reuse; then
-    progress 6 "Existing runtime is healthy; no download or reinstall was needed"
+    progress 6 "Publishing OfficeCLI to the user PATH and refreshing environment state"
+    publish_officecli_command
     write_state "true"
     return
   fi
@@ -374,7 +420,8 @@ install() {
   progress 5 "Running OfficeCLI, Poppler, Tesseract, and OCR language health checks"
   health_check || fail "${HEALTH_ERROR:-one or more local tool health checks failed}"
 
-  progress 6 "Writing the verified user environment state"
+  progress 6 "Publishing OfficeCLI to the user PATH and writing environment state"
+  publish_officecli_command
   write_state "false"
 }
 
