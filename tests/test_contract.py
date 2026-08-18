@@ -28,6 +28,8 @@ class BootstrapContractTests(unittest.TestCase):
         self.assertEqual(catalog["runtime_version"], "1.0.0")
         self.assertFalse(catalog["policy"]["publishes_custom_binary"])
         self.assertTrue(catalog["policy"]["silent_preflight"])
+        self.assertTrue(catalog["policy"]["modifies_path"])
+        self.assertEqual(catalog["policy"]["path_scope"], "user")
         entrypoints = {item["os"]: item for item in catalog["entrypoints"]}
         self.assertEqual(set(entrypoints), {"macos", "windows"})
         for os_name, path in (("macos", MACOS), ("windows", WINDOWS)):
