@@ -106,7 +106,7 @@ try {
         throw "pixi-pack failed with exit code $LASTEXITCODE"
     }
 
-    $officeVersion = (Invoke-Captured $officecliPath @("--version"))[0].Trim()
+    $officeVersion = (@(Invoke-Captured $officecliPath @("--version")))[0].Trim()
     $null = Invoke-Captured $officecliPath @("help")
     $packageJsonPath = Join-Path $PackageRoot "package.json"
     $packageManifest = [ordered]@{
