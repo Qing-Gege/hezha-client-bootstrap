@@ -20,10 +20,16 @@ if errorlevel 1 exit /b 1
 if not exist "%BIN%" mkdir "%BIN%" >nul 2>&1
 if errorlevel 1 exit /b 1
 
-robocopy "%SOURCE%" "%TARGET%" pixi.exe officecli.exe pixi.toml pixi.lock environment.tar pixi-unpack.exe package.json /COPY:DAT /R:1 /W:1 /NFL /NDL /NJH /NJS /NP >nul
-if errorlevel 8 (
-  echo Document runtime install failed: could not copy runtime files 1>&2
-  exit /b 1
+for %%F in (pixi.exe officecli.exe pixi.toml pixi.lock environment.tar pixi-unpack.exe package.json) do (
+  if not exist "%SOURCE%%%F" (
+    echo Document runtime install failed: missing package file %%F 1>&2
+    exit /b 1
+  )
+  copy /Y "%SOURCE%%%F" "%TARGET%%%F" >nul
+  if errorlevel 1 (
+    echo Document runtime install failed: could not copy %%F 1>&2
+    exit /b 1
+  )
 )
 
 copy /Y "%TARGET%\officecli.exe" "%BIN%\officecli.exe" >nul
