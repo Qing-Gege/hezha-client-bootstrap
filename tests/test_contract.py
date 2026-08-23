@@ -91,10 +91,10 @@ class BootstrapContractTests(unittest.TestCase):
         self.assertIn('SKILL_VERSION="1.6.0"', macos)
         self.assertIn('$SkillVersion = "1.6.0"', windows)
         self.assertIn(
-            "1ea0d60bcbcd13ecbb4294ece3de75f868c529ee9ff69ac0f7ceae4611e80496",
+            "b8102c5eb9014c8b61510c971c3f73abffca74e9533e0f0ca394ce8f5721ce6e",
             combined,
         )
-        self.assertIn("v1.0.8", combined)
+        self.assertIn("v1.0.9", combined)
         self.assertNotIn("/latest/", combined)
         self.assertNotIn("releases/latest", combined)
         self.assertIn("$HOME/.codex/skills", macos)

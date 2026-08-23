@@ -76,6 +76,7 @@ def build(output_directory: Path) -> Path:
         entries = {"manifest.json": json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8") + b"\n", **files}
         for name, content in sorted(entries.items()):
             info = zipfile.ZipInfo(name, date_time=(2020, 1, 1, 0, 0, 0))
+            info.create_system = 0
             info.compress_type = zipfile.ZIP_DEFLATED
             info.external_attr = 0o600 << 16
             archive.writestr(info, content)
