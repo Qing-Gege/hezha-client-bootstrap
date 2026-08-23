@@ -7,7 +7,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $SkillVersion = "1.6.0"
-$SkillReleaseTag = "v1.0.7"
+$SkillReleaseTag = "v1.0.8"
 $SkillBundleName = "KaodaWoSkills-v$SkillVersion.zip"
 $SkillBundleUrl = "https://github.com/Qing-Gege/hezha-client-bootstrap/releases/download/$SkillReleaseTag/$SkillBundleName"
 $SkillBundleSize = [int64]18264

@@ -4,7 +4,7 @@ set -euo pipefail
 umask 077
 
 readonly SKILL_VERSION="1.6.0"
-readonly SKILL_RELEASE_TAG="v1.0.7"
+readonly SKILL_RELEASE_TAG="v1.0.8"
 readonly SKILL_BUNDLE_NAME="KaodaWoSkills-v${SKILL_VERSION}.zip"
 readonly SKILL_BUNDLE_URL="https://github.com/Qing-Gege/hezha-client-bootstrap/releases/download/${SKILL_RELEASE_TAG}/${SKILL_BUNDLE_NAME}"
 readonly SKILL_BUNDLE_SIZE="18264"

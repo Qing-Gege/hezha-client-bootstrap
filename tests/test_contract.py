@@ -94,7 +94,7 @@ class BootstrapContractTests(unittest.TestCase):
             "1ea0d60bcbcd13ecbb4294ece3de75f868c529ee9ff69ac0f7ceae4611e80496",
             combined,
         )
-        self.assertIn("v1.0.7", combined)
+        self.assertIn("v1.0.8", combined)
         self.assertNotIn("/latest/", combined)
         self.assertNotIn("releases/latest", combined)
         self.assertIn("$HOME/.codex/skills", macos)

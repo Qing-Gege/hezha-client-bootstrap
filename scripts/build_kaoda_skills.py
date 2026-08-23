@@ -19,6 +19,11 @@ def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def normalized_text(path: Path) -> bytes:
+    """Keep the published text bundle identical on Unix and Windows runners."""
+    return path.read_bytes().replace(b"\r\n", b"\n")
+
+
 def read_source() -> tuple[dict, dict[str, bytes]]:
     protocol = json.loads((SOURCE / "protocol.json").read_text(encoding="utf-8"))
     version = protocol.get("version")
@@ -26,9 +31,9 @@ def read_source() -> tuple[dict, dict[str, bytes]]:
         raise SystemExit("invalid kaoda-wo protocol identity")
 
     files = {
-        "protocol.json": (SOURCE / "protocol.json").read_bytes(),
+        "protocol.json": normalized_text(SOURCE / "protocol.json"),
         **{
-            f"clients/{client}/SKILL.md": (SOURCE / client / "SKILL.md").read_bytes()
+            f"clients/{client}/SKILL.md": normalized_text(SOURCE / client / "SKILL.md")
             for client in CLIENTS
         },
     }
