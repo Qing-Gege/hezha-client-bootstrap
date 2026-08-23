@@ -38,7 +38,7 @@ for %%F in (pixi.exe officecli.exe pixi.toml pixi.lock environment.tar pixi-unpa
   )
 )
 
-copy /Y "%TARGET%\officecli.exe" "%BIN%\officecli.exe" >nul
+xcopy /Y /Q "%TARGET%\officecli.exe" "%BIN%\" >nul
 if errorlevel 1 (
   echo Document runtime install failed: could not publish OfficeCLI 1>&2
   exit /b 1
