@@ -88,7 +88,7 @@ set "TESSERACT=%ENV_BIN%\tesseract.exe"
 
 set "JSON_TARGET=%TARGET:\=\\%"
 set "JSON_BIN=%BIN:\=\\%"
-set "JSON_OFFICE=%JSON_TARGET%\officecli.exe"
+set "JSON_OFFICE=%JSON_TARGET%\\officecli.exe"
 set "JSON_PDFTOTEXT=%PDFTOTEXT:\=\\%"
 set "JSON_PDFTOPPM=%PDFTOPPM:\=\\%"
 set "JSON_PDFSEPARATE=%PDFSEPARATE:\=\\%"
