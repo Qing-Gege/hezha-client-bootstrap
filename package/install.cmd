@@ -16,9 +16,15 @@ if not defined LOCALAPPDATA (
 )
 
 if not exist "%TARGET%" mkdir "%TARGET%" >nul 2>&1
-if errorlevel 1 exit /b 1
+if errorlevel 1 (
+  echo Document runtime install failed: could not create runtime directory 1>&2
+  exit /b 1
+)
 if not exist "%BIN%" mkdir "%BIN%" >nul 2>&1
-if errorlevel 1 exit /b 1
+if errorlevel 1 (
+  echo Document runtime install failed: could not create bin directory 1>&2
+  exit /b 1
+)
 
 for %%F in (pixi.exe officecli.exe pixi.toml pixi.lock environment.tar pixi-unpack.exe package.json) do (
   if not exist "%SOURCE%%%F" (
@@ -33,7 +39,10 @@ for %%F in (pixi.exe officecli.exe pixi.toml pixi.lock environment.tar pixi-unpa
 )
 
 copy /Y "%TARGET%\officecli.exe" "%BIN%\officecli.exe" >nul
-if errorlevel 1 exit /b 1
+if errorlevel 1 (
+  echo Document runtime install failed: could not publish OfficeCLI 1>&2
+  exit /b 1
+)
 
 if not exist "%TARGET%\runtime\Library\bin\tesseract.exe" (
   "%TARGET%\pixi-unpack.exe" --output-directory "%TARGET%" --env-name runtime --shell cmd "%TARGET%\environment.tar"
@@ -44,7 +53,10 @@ if not exist "%TARGET%\runtime\Library\bin\tesseract.exe" (
 )
 
 call "%TARGET%\activate.bat" >nul 2>&1
-if errorlevel 1 exit /b 1
+if errorlevel 1 (
+  echo Document runtime install failed: could not activate environment 1>&2
+  exit /b 1
+)
 for %%T in (pdftotext pdftoppm pdfseparate pdfunite tesseract) do (
   if not exist "%ENV_BIN%\%%T.exe" (
     echo Document runtime install failed: %%T is unavailable 1>&2

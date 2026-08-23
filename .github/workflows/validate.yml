@@ -156,7 +156,7 @@ jobs:
           if (($entries | Where-Object { $_.Name -eq "DocumentRuntime-win-x64" }).Count -ne 0) {
             throw "runtime package has an unexpected nested directory"
           }
-          cmd.exe /d /c (Join-Path $packageRoot "install.cmd")
+          cmd.exe /d /c call (Join-Path $packageRoot "install.cmd")
           if ($LASTEXITCODE -ne 0) {
             throw "runtime package install failed with exit code $LASTEXITCODE"
           }
