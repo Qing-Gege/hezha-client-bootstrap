@@ -60,7 +60,7 @@ function Invoke-Captured([string]$Executable, [string[]]$Arguments) {
         throw "command could not be started: $Executable"
     }
     if ($exitCode -ne 0) {
-        throw "command failed with exit code $exitCode: $Executable"
+        throw "command failed with exit code ${exitCode}: $Executable"
     }
     return $output
 }
