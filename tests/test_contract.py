@@ -5,6 +5,8 @@ import json
 import platform
 import re
 import subprocess
+import tempfile
+import zipfile
 import unittest
 from pathlib import Path
 
@@ -12,12 +14,18 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MACOS = ROOT / "bootstrap" / "macos.sh"
 WINDOWS = ROOT / "bootstrap" / "windows.ps1"
+MACOS_SKILL_INSTALLER = ROOT / "bootstrap" / "install-kaoda-macos.sh"
+WINDOWS_SKILL_INSTALLER = ROOT / "bootstrap" / "install-kaoda-windows.ps1"
 RUNTIME = ROOT / "runtime" / "1.0.0"
 CATALOG = RUNTIME / "bootstrap.json"
 
 
 def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def sha256_bytes(value: bytes) -> str:
+    return hashlib.sha256(value).hexdigest()
 
 
 class BootstrapContractTests(unittest.TestCase):
@@ -73,6 +81,65 @@ class BootstrapContractTests(unittest.TestCase):
             windows,
             r'\[ValidateSet\("Install", "Inspect"\)\]',
         )
+
+    def test_kaoda_skill_installers_are_pinned_and_client_scoped(self) -> None:
+        macos = MACOS_SKILL_INSTALLER.read_text(encoding="utf-8")
+        windows = WINDOWS_SKILL_INSTALLER.read_text(encoding="utf-8")
+        combined = macos + windows
+        self.assertIn('KaodaWoSkills-v${SKILL_VERSION}.zip', macos)
+        self.assertIn('KaodaWoSkills-v$SkillVersion.zip', windows)
+        self.assertIn('SKILL_VERSION="1.6.0"', macos)
+        self.assertIn('$SkillVersion = "1.6.0"', windows)
+        self.assertIn(
+            "1ea0d60bcbcd13ecbb4294ece3de75f868c529ee9ff69ac0f7ceae4611e80496",
+            combined,
+        )
+        self.assertIn("v1.0.7", combined)
+        self.assertNotIn("/latest/", combined)
+        self.assertNotIn("releases/latest", combined)
+        self.assertIn("$HOME/.codex/skills", macos)
+        self.assertIn("$HOME/.claude/skills", macos)
+        self.assertIn(".codex\\skills", windows)
+        self.assertIn(".claude\\skills", windows)
+        self.assertIn("user_scope_only", macos)
+        self.assertIn("user_scope_only", windows)
+
+    def test_kaoda_bundle_is_deterministic_and_contains_both_clients(self) -> None:
+        import sys
+
+        with tempfile.TemporaryDirectory() as directory:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/build_kaoda_skills.py",
+                    "--output-directory",
+                    directory,
+                ],
+                cwd=ROOT,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            output = json.loads(result.stdout)
+            path = Path(output["path"])
+            self.assertEqual(path.name, "KaodaWoSkills-v1.6.0.zip")
+            with zipfile.ZipFile(path) as archive:
+                self.assertEqual(
+                    set(archive.namelist()),
+                    {
+                        "manifest.json",
+                        "protocol.json",
+                        "clients/codex/SKILL.md",
+                        "clients/claude/SKILL.md",
+                    },
+                )
+                manifest = json.loads(archive.read("manifest.json"))
+                self.assertEqual(manifest["skill_id"], "kaoda-wo")
+                self.assertEqual(manifest["version"], "1.6.0")
+                self.assertEqual(
+                    manifest["protocol_sha256"],
+                    sha256_bytes(archive.read("protocol.json")),
+                )
 
     def test_entrypoints_preserve_security_contract(self) -> None:
         combined = (

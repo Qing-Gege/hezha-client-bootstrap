@@ -13,6 +13,9 @@ jobs:
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
       - name: Build Windows x64 runtime package
         shell: powershell
         run: |
@@ -20,8 +23,16 @@ jobs:
           powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass `
             -File scripts/build_windows_runtime.ps1 -OutputDirectory $output
           "PACKAGE=$output\DocumentRuntime-win-x64.zip" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Build kaoda-wo client skill bundle
+        shell: bash
+        run: |
+          output="$RUNNER_TEMP/kaoda-wo-release"
+          python scripts/build_kaoda_skills.py --output-directory "$output"
+          echo "KAODA_PACKAGE=$output/KaodaWoSkills-v1.6.0.zip" >> "$GITHUB_ENV"
       - name: Publish GitHub Release asset
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: ${{ env.PACKAGE }}
+          files: |
+            ${{ env.PACKAGE }}
+            ${{ env.KAODA_PACKAGE }}

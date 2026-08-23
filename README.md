@@ -1,9 +1,10 @@
 # HeZha Client Bootstrap
 
 `hezha-client-bootstrap` provides the deterministic, user-scoped local document
-runtime used by HeZha legal-skill MCP clients. It installs and verifies
-OfficeCLI, Poppler, Tesseract, and the required Chinese and English OCR data
-before an MCP connection is added and the client is restarted once.
+runtime and the client-level `kaoda-wo` controller used by HeZha legal-skill MCP
+clients. It installs and verifies OfficeCLI, Poppler, Tesseract, the required
+Chinese and English OCR data, and the local client skill before an MCP
+connection is added and the client is restarted once.
 
 This repository does **not** publish a custom installer or executable. The two
 entrypoints are reviewable text:
@@ -42,6 +43,12 @@ The bootstrap process:
 The calling Agent may configure a user-level MCP connection only after the
 bootstrap exits successfully.
 
+The `kaoda-wo` bundle is a text-only, versioned client skill. Its Codex and
+Claude Code adapters are installed separately at user scope by the pinned
+`bootstrap/install-kaoda-macos.sh` or `bootstrap/install-kaoda-windows.ps1`
+entrypoint. The controller must be present before a HeZha legal task can load
+an entity or document skill.
+
 The OfficeCLI release tag and asset digest stay pinned exactly. Health checks
 parse the binary's reported semantic version and require it to be at least the
 declared minimum, because platform assets from one release may report a newer
@@ -60,11 +67,14 @@ through PATH.
 ```text
 /bin/zsh bootstrap/macos.sh install
 /bin/zsh bootstrap/macos.sh inspect
+/bin/zsh bootstrap/install-kaoda-macos.sh [codex|claude]
 
 powershell.exe -NoLogo -NoProfile -NonInteractive \
   -ExecutionPolicy Bypass -File bootstrap/windows.ps1 Install
 powershell.exe -NoLogo -NoProfile -NonInteractive \
   -ExecutionPolicy Bypass -File bootstrap/windows.ps1 Inspect
+powershell.exe -NoLogo -NoProfile -NonInteractive \
+  -ExecutionPolicy Bypass -File bootstrap/install-kaoda-windows.ps1 -Client [codex|claude]
 ```
 
 `ExecutionPolicy Bypass` is limited to the one bootstrap process. The script
@@ -99,3 +109,7 @@ runner. Full cold-install validation remains a real-machine release gate.
 5. Commit and create an immutable `v<version>` tag.
 6. Pin the customer installation prompt to the tagged raw URL, size, and
    SHA-256. Never pin to a branch.
+
+The same release also carries the deterministic `KaodaWoSkills-v<version>.zip`
+asset. Pin its release URL, size, and SHA-256 in the customer installation
+catalog; do not fetch a default branch or an unverified raw skill file.
