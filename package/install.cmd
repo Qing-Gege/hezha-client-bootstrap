@@ -31,14 +31,14 @@ for %%F in (pixi.exe officecli.exe pixi.toml pixi.lock environment.tar pixi-unpa
     echo Document runtime install failed: missing package file %%F 1>&2
     exit /b 1
   )
-  copy /Y "%SOURCE%%%F" "%TARGET%%%F" >nul
+  copy /Y "%SOURCE%%%F" "%TARGET%\" >nul
   if errorlevel 1 (
     echo Document runtime install failed: could not copy %%F 1>&2
     exit /b 1
   )
 )
 
-xcopy /Y /Q "%TARGET%\officecli.exe" "%BIN%\" >nul
+xcopy /Y /Q "%SOURCE%officecli.exe" "%BIN%\" >nul
 if errorlevel 1 (
   echo Document runtime install failed: could not publish OfficeCLI 1>&2
   exit /b 1
