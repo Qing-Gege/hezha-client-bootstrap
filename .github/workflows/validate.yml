@@ -139,3 +139,49 @@ jobs:
             $env:Path = $originalProcessPath
             Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue
           }
+      - name: Build and install Windows x64 runtime package
+        shell: powershell
+        run: |
+          $output = Join-Path $env:RUNNER_TEMP "document-runtime-package"
+          powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass `
+            -File scripts/build_windows_runtime.ps1 -OutputDirectory $output
+          $zip = Join-Path $output "DocumentRuntime-win-x64.zip"
+          if (-not (Test-Path -LiteralPath $zip -PathType Leaf)) {
+            throw "runtime package was not built"
+          }
+          $extract = Join-Path $env:RUNNER_TEMP "document-runtime-extract"
+          Expand-Archive -LiteralPath $zip -DestinationPath $extract -Force
+          $packageRoot = Join-Path $extract "DocumentRuntime-win-x64"
+          $entries = Get-ChildItem -LiteralPath $packageRoot -Force
+          if (($entries | Where-Object { $_.Name -eq "DocumentRuntime-win-x64" }).Count -ne 0) {
+            throw "runtime package has an unexpected nested directory"
+          }
+          cmd.exe /d /c (Join-Path $packageRoot "install.cmd")
+          if ($LASTEXITCODE -ne 0) {
+            throw "runtime package install failed with exit code $LASTEXITCODE"
+          }
+          $state = Join-Path $env:LOCALAPPDATA "LegalSkills\environment.json"
+          $json = Get-Content -LiteralPath $state -Raw | ConvertFrom-Json
+          if ($json.status -ne "ready" -or $json.runtime_mode -ne "portable-package") {
+            throw "runtime state is not ready"
+          }
+          if ($json.os -ne "windows" -or $json.arch -ne "x64") {
+            throw "runtime state platform is incorrect"
+          }
+          foreach ($name in @("officecli", "pdftotext", "pdftoppm", "pdfseparate", "pdfunite", "tesseract")) {
+            $command = $json.commands.$name
+            if ($null -eq $command -or $command.Count -ne 1 -or -not [IO.Path]::IsPathRooted($command[0])) {
+              throw "runtime command is invalid: $name"
+            }
+            if (-not (Test-Path -LiteralPath $command[0] -PathType Leaf)) {
+              throw "runtime command is missing: $name"
+            }
+          }
+          if (@($json.ocr_languages) -join "," -ne "eng,chi_sim,chi_tra,osd") {
+            throw "runtime OCR language set is incomplete"
+          }
+          & $json.commands.officecli[0] --version
+          if ($LASTEXITCODE -ne 0) { throw "OfficeCLI health check failed" }
+          & $json.commands.officecli[0] help | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "OfficeCLI help check failed" }
+          Remove-Item -LiteralPath $env:LOCALAPPDATA\LegalSkills -Recurse -Force
