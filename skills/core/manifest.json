@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "pack_id": "core",
+  "version": "0.5.0",
+  "title": "通用基础",
+  "clients": [
+    "codex",
+    "claude"
+  ],
+  "bundle_builder": "scripts/build_core_skills.py",
+  "skills": [
+    {
+      "skill_id": "diagramming",
+      "title": "法律关系与流程图",
+      "version": "0.1.0"
+    },
+    {
+      "skill_id": "document-ocr",
+      "title": "法律材料 OCR",
+      "version": "0.1.0"
+    },
+    {
+      "skill_id": "document-operations",
+      "title": "法律文档通用读写",
+      "version": "0.3.0"
+    },
+    {
+      "skill_id": "skill-authoring",
+      "title": "技能设计助手",
+      "version": "0.1.0"
+    },
+    {
+      "skill_id": "source",
+      "title": "法源",
+      "version": "0.2.1"
+    }
+  ]
+}

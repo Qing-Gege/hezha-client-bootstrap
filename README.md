@@ -49,6 +49,13 @@ Claude Code adapters are installed separately at user scope by the pinned
 entrypoint. The controller must be present before a HeZha legal task can load
 an entity or document skill.
 
+The `core` bundle is the text-only, versioned client copy of HeZha's shared
+document, OCR, diagramming, source, and skill-authoring skills. Its Codex and
+Claude Code adapters are installed at user scope by the pinned
+`bootstrap/install-core-macos.sh` or `bootstrap/install-core-windows.ps1`
+entrypoint. Entity legal skills stay in MCP; these local skills only own the
+client-side file, OCR, diagram, citation, and skill-authoring gates.
+
 The OfficeCLI release tag and asset digest stay pinned exactly. Health checks
 parse the binary's reported semantic version and require it to be at least the
 declared minimum, because platform assets from one release may report a newer
@@ -68,6 +75,7 @@ through PATH.
 /bin/zsh bootstrap/macos.sh install
 /bin/zsh bootstrap/macos.sh inspect
 /bin/zsh bootstrap/install-kaoda-macos.sh [codex|claude]
+/bin/zsh bootstrap/install-core-macos.sh [codex|claude]
 
 powershell.exe -NoLogo -NoProfile -NonInteractive \
   -ExecutionPolicy Bypass -File bootstrap/windows.ps1 Install
@@ -75,6 +83,8 @@ powershell.exe -NoLogo -NoProfile -NonInteractive \
   -ExecutionPolicy Bypass -File bootstrap/windows.ps1 Inspect
 powershell.exe -NoLogo -NoProfile -NonInteractive \
   -ExecutionPolicy Bypass -File bootstrap/install-kaoda-windows.ps1 -Client [codex|claude]
+powershell.exe -NoLogo -NoProfile -NonInteractive \
+  -ExecutionPolicy Bypass -File bootstrap/install-core-windows.ps1 -Client [codex|claude]
 ```
 
 `ExecutionPolicy Bypass` is limited to the one bootstrap process. The script
@@ -111,5 +121,6 @@ runner. Full cold-install validation remains a real-machine release gate.
    SHA-256. Never pin to a branch.
 
 The same release also carries the deterministic `KaodaWoSkills-v<version>.zip`
-asset. Pin its release URL, size, and SHA-256 in the customer installation
-catalog; do not fetch a default branch or an unverified raw skill file.
+and `CoreSkills-v<version>.zip` assets. Pin each release URL, size, and SHA-256
+in the customer installation catalog; do not fetch a default branch or an
+unverified raw skill file.

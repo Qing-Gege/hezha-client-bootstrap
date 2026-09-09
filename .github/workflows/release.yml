@@ -29,6 +29,12 @@ jobs:
           output="$RUNNER_TEMP/kaoda-wo-release"
           python scripts/build_kaoda_skills.py --output-directory "$output"
           echo "KAODA_PACKAGE=$output/KaodaWoSkills-v1.6.0.zip" >> "$GITHUB_ENV"
+      - name: Build core client skill bundle
+        shell: bash
+        run: |
+          output="$RUNNER_TEMP/core-skills-release"
+          python scripts/build_core_skills.py --output-directory "$output"
+          echo "CORE_PACKAGE=$output/CoreSkills-v0.5.0.zip" >> "$GITHUB_ENV"
       - name: Publish GitHub Release asset
         uses: softprops/action-gh-release@v2
         with:
@@ -36,3 +42,4 @@ jobs:
           files: |
             ${{ env.PACKAGE }}
             ${{ env.KAODA_PACKAGE }}
+            ${{ env.CORE_PACKAGE }}

@@ -16,6 +16,9 @@ MACOS = ROOT / "bootstrap" / "macos.sh"
 WINDOWS = ROOT / "bootstrap" / "windows.ps1"
 MACOS_SKILL_INSTALLER = ROOT / "bootstrap" / "install-kaoda-macos.sh"
 WINDOWS_SKILL_INSTALLER = ROOT / "bootstrap" / "install-kaoda-windows.ps1"
+MACOS_CORE_INSTALLER = ROOT / "bootstrap" / "install-core-macos.sh"
+WINDOWS_CORE_INSTALLER = ROOT / "bootstrap" / "install-core-windows.ps1"
+CORE_BUNDLE_SHA256 = "655c3e1fe9af538cc1807cebb4bed929b3698d2aca696014336d424741066a13"
 RUNTIME = ROOT / "runtime" / "1.0.0"
 CATALOG = RUNTIME / "bootstrap.json"
 
@@ -104,6 +107,33 @@ class BootstrapContractTests(unittest.TestCase):
         self.assertIn("user_scope_only", macos)
         self.assertIn("user_scope_only", windows)
 
+    def test_core_skill_installers_are_pinned_and_client_scoped(self) -> None:
+        macos = MACOS_CORE_INSTALLER.read_text(encoding="utf-8")
+        windows = WINDOWS_CORE_INSTALLER.read_text(encoding="utf-8")
+        combined = macos + windows
+        self.assertIn('CoreSkills-v${SKILL_VERSION}.zip', macos)
+        self.assertIn('CoreSkills-v$SkillVersion.zip', windows)
+        self.assertIn('SKILL_VERSION="0.5.0"', macos)
+        self.assertIn('$SkillVersion = "0.5.0"', windows)
+        self.assertIn(CORE_BUNDLE_SHA256, combined)
+        self.assertIn("v1.0.10", combined)
+        self.assertNotIn("/latest/", combined)
+        self.assertNotIn("releases/latest", combined)
+        self.assertIn("$HOME/.codex/skills", macos)
+        self.assertIn("$HOME/.claude/skills", macos)
+        self.assertIn(".codex\\skills", windows)
+        self.assertIn(".claude\\skills", windows)
+        for skill_id in (
+            "document-operations",
+            "document-ocr",
+            "diagramming",
+            "source",
+            "skill-authoring",
+        ):
+            self.assertIn(skill_id, combined)
+        self.assertIn("user_scope_only", macos)
+        self.assertIn("user_scope_only", windows)
+
     def test_kaoda_bundle_is_deterministic_and_contains_both_clients(self) -> None:
         import sys
 
@@ -139,6 +169,61 @@ class BootstrapContractTests(unittest.TestCase):
                 self.assertEqual(
                     manifest["protocol_sha256"],
                     sha256_bytes(archive.read("protocol.json")),
+                )
+
+    def test_core_bundle_is_deterministic_and_contains_both_clients(self) -> None:
+        import sys
+
+        with tempfile.TemporaryDirectory() as directory:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/build_core_skills.py",
+                    "--output-directory",
+                    directory,
+                ],
+                cwd=ROOT,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            output = json.loads(result.stdout)
+            path = Path(output["path"])
+            self.assertEqual(path.name, "CoreSkills-v0.5.0.zip")
+            self.assertEqual(output["sha256"], CORE_BUNDLE_SHA256)
+            self.assertEqual(output["size"], 66649)
+            expected = {
+                "manifest.json",
+                "pack.manifest.json",
+            }
+            for skill_id in (
+                "document-operations",
+                "document-ocr",
+                "diagramming",
+                "source",
+                "skill-authoring",
+            ):
+                expected.add(f"skills/{skill_id}/manifest.json")
+                expected.add(f"skills/{skill_id}/clients/codex/SKILL.md")
+                expected.add(f"skills/{skill_id}/clients/claude/SKILL.md")
+            with zipfile.ZipFile(path) as archive:
+                self.assertEqual(set(archive.namelist()), expected)
+                manifest = json.loads(archive.read("manifest.json"))
+                self.assertEqual(manifest["pack_id"], "core")
+                self.assertEqual(manifest["version"], "0.5.0")
+                self.assertEqual(
+                    manifest["pack_manifest_sha256"],
+                    sha256_bytes(archive.read("pack.manifest.json")),
+                )
+                self.assertEqual(
+                    [item["skill_id"] for item in manifest["skills"]],
+                    [
+                        "diagramming",
+                        "document-ocr",
+                        "document-operations",
+                        "skill-authoring",
+                        "source",
+                    ],
                 )
 
     def test_entrypoints_preserve_security_contract(self) -> None:
