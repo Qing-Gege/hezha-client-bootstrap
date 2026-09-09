@@ -6,12 +6,12 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$SkillVersion = "0.5.2"
-$SkillReleaseTag = "v1.0.13"
+$SkillVersion = "0.5.1"
+$SkillReleaseTag = "v1.0.14"
 $SkillBundleName = "CoreSkills-v$SkillVersion.zip"
 $SkillBundleUrl = "https://github.com/Qing-Gege/hezha-client-bootstrap/releases/download/$SkillReleaseTag/$SkillBundleName"
-$SkillBundleSize = [int64]67551
-$SkillBundleSha256 = "feab693f70582d2c3533e492709c624e1e937965464baa13d972e5c72f50e81a"
+$SkillBundleSize = [int64]67548
+$SkillBundleSha256 = "18e68e61d7b960b26bf14793277046efb6d98e982b3be1f5e93fed894b9ce89d"
 
 function Stop-Install([string]$Message) {
     throw "HeZha core skills install failed: $Message"

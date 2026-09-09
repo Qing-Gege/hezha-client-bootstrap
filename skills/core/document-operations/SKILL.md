@@ -6,7 +6,7 @@ description: >
 
 # 法律文档通用读写
 
-客户端技能版本：document-operations v0.3.2
+客户端技能版本：document-operations v0.3.1
 
 ## 职责
 

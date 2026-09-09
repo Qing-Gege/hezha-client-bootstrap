@@ -3,12 +3,12 @@
 set -euo pipefail
 umask 077
 
-readonly SKILL_VERSION="0.5.2"
-readonly SKILL_RELEASE_TAG="v1.0.13"
+readonly SKILL_VERSION="0.5.1"
+readonly SKILL_RELEASE_TAG="v1.0.14"
 readonly SKILL_BUNDLE_NAME="CoreSkills-v${SKILL_VERSION}.zip"
 readonly SKILL_BUNDLE_URL="https://github.com/Qing-Gege/hezha-client-bootstrap/releases/download/${SKILL_RELEASE_TAG}/${SKILL_BUNDLE_NAME}"
-readonly SKILL_BUNDLE_SIZE="67551"
-readonly SKILL_BUNDLE_SHA256="feab693f70582d2c3533e492709c624e1e937965464baa13d972e5c72f50e81a"
+readonly SKILL_BUNDLE_SIZE="67548"
+readonly SKILL_BUNDLE_SHA256="18e68e61d7b960b26bf14793277046efb6d98e982b3be1f5e93fed894b9ce89d"
 readonly SKILL_IDS=(document-operations document-ocr diagramming source skill-authoring)
 
 fail() {
