@@ -6,7 +6,7 @@ description: >
 
 # 法律文档通用读写
 
-客户端技能版本：document-operations v0.3.1
+客户端技能版本：document-operations v0.3.2
 
 ## 职责
 
@@ -137,11 +137,11 @@ macOS AppleScript 必须遵守以下已经实测的文件访问和对象规则�
 
 - 所有现有文件先用 `POSIX file <绝对路径> as alias` 转为 `alias`；禁止 `open file name "/posix/path"`。裸路径会让 Word 弹出“授予文件访问权限”，AppleScript 等待对话框后报 `AppleEvent 已超时 (-1712)`，这不是 Word 启动失败。
 - 显式 `activate` Word，并轮询 `every document whose full name is <alias as text>`，最多等待 10 秒。不要在 Word 尚未激活或加载完成时读取 `active document`，也不要把 `open` 的返回值当作稳定文档对象。
-- 先分别用 `alias` 打开并关闭工作版和预建红线稿占位文件，让 Word 获得安全作用域；随后只打开原件。调用 `compare (first document whose full name is <原件 HFS 路径>) path <工作版 POSIX 路径> author name <审查人>`，并等待文档数增加后再取得 `active document`。不要同时保持工作版打开，也不要用 `document 1` 跨步骤保存引用；Word 会按窗口活动顺序重排索引并可能反转比较方向。
+- 先分别用 `alias` 打开并关闭工作版和预建红线稿占位文件，让 Word 获得安全作用域；随后只打开原件。调用 `compare (first document whose full name is <原件 HFS 路径>) path <工作版 POSIX 路径> author name <审查人>`。AppleScript 的 `compare` 不能传粒度和 CompareMoves；仍须生成字符级、非移动检测的红线效果，不得把 Word 默认词级或移动检测当作成功标准；并等待文档数增加后再取得 `active document`。不要同时保持工作版打开，也不要用 `document 1` 跨步骤保存引用；Word 会按窗口活动顺序重排索引并可能反转比较方向。
 - `compare` 命令本身不返回结果对象。取得新活动文档后，使用 Word `save as <比较结果> file name <红线稿 HFS 路径> file format format document default`。Standard Suite 的 `save ... in <alias>` 可能不报错却不覆盖占位文件，不能采用。
 - Compare 最多等待 30 秒。发生 `-1712` 时先检查 Word 是否显示文件访问、格式转换、密码、修复或冲突对话框；只关闭本次按完整路径打开的文档并报告精确阻塞。不得盲目重置 TCC、终止 Word 或关闭用户原有文档。
 
-Windows 必须使用 Windows PowerShell 5.1 和已安装 Word 的 COM 自动化完成同一顺序；不能只写原则说明，也不能把 macOS AppleScript 改写后冒充 Windows 支持。Microsoft 官方对象模型固定为：`Application.CompareDocuments` 返回含修订的新 `Document`，`wdCompareDestinationNew=2`、`wdGranularityWordLevel=1`、`wdFormatXMLDocument=12`。以四个不同绝对路径运行下面的确定性模板；原件和工作版必须已存在，红线稿和清洁版必须尚不存在：
+Windows 必须使用 Windows PowerShell 5.1 和已安装 Word 的 COM 自动化完成同一顺序；不能只写原则说明，也不能把 macOS AppleScript 改写后冒充 Windows 支持。比较必须使用字符级粒度并关闭移动检测：`Granularity=wdGranularityCharLevel`、`CompareMoves=false`。禁止词级粒度，也禁止把相似长句判成整块移动。Microsoft 官方对象模型固定为：`Application.CompareDocuments` 返回含修订的新 `Document`，`wdCompareDestinationNew=2`、`wdGranularityCharLevel=0`、`wdFormatXMLDocument=12`。以四个不同绝对路径运行下面的确定性模板；原件和工作版必须已存在，红线稿和清洁版必须尚不存在：
 
 ```powershell
 param(
@@ -156,7 +156,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $wdCompareDestinationNew = 2
-$wdGranularityWordLevel = 1
+$wdGranularityCharLevel = 0
 $wdFormatXMLDocument = 12
 $wdDoNotSaveChanges = 0
 $wdAlertsNone = 0
@@ -253,9 +253,9 @@ try {
     $workingCommentCount = [int]$workingDoc.Comments.Count
     $redlineDoc = $word.CompareDocuments(
         $originalDoc, $workingDoc,
-        $wdCompareDestinationNew, $wdGranularityWordLevel,
+        $wdCompareDestinationNew, $wdGranularityCharLevel,
         $true, $true, $true, $true, $true, $true,
-        $true, $true, $true, $true,
+        $true, $true, $true, $false,
         $ReviewAuthor, $true
     )
     $revisionCount = [int]$redlineDoc.Revisions.Count
