@@ -152,7 +152,7 @@ class BootstrapContractTests(unittest.TestCase):
             )
             output = json.loads(result.stdout)
             path = Path(output["path"])
-            self.assertEqual(path.name, "KaodaWoSkills-v1.7.0.zip")
+            self.assertEqual(path.name, "KaodaWoSkills-v1.6.0.zip")
             with zipfile.ZipFile(path) as archive:
                 self.assertEqual(
                     set(archive.namelist()),
@@ -165,7 +165,7 @@ class BootstrapContractTests(unittest.TestCase):
                 )
                 manifest = json.loads(archive.read("manifest.json"))
                 self.assertEqual(manifest["skill_id"], "kaoda-wo")
-                self.assertEqual(manifest["version"], "1.7.0")
+                self.assertEqual(manifest["version"], "1.6.0")
                 self.assertEqual(
                     manifest["protocol_sha256"],
                     sha256_bytes(archive.read("protocol.json")),
