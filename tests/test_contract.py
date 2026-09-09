@@ -18,7 +18,7 @@ MACOS_SKILL_INSTALLER = ROOT / "bootstrap" / "install-kaoda-macos.sh"
 WINDOWS_SKILL_INSTALLER = ROOT / "bootstrap" / "install-kaoda-windows.ps1"
 MACOS_CORE_INSTALLER = ROOT / "bootstrap" / "install-core-macos.sh"
 WINDOWS_CORE_INSTALLER = ROOT / "bootstrap" / "install-core-windows.ps1"
-CORE_BUNDLE_SHA256 = "655c3e1fe9af538cc1807cebb4bed929b3698d2aca696014336d424741066a13"
+CORE_BUNDLE_SHA256 = "9f73b70735ec31edfd6be2cf25895f20e15115a53b500460dcd9127683e010bc"
 RUNTIME = ROOT / "runtime" / "1.0.0"
 CATALOG = RUNTIME / "bootstrap.json"
 
@@ -113,10 +113,10 @@ class BootstrapContractTests(unittest.TestCase):
         combined = macos + windows
         self.assertIn('CoreSkills-v${SKILL_VERSION}.zip', macos)
         self.assertIn('CoreSkills-v$SkillVersion.zip', windows)
-        self.assertIn('SKILL_VERSION="0.5.0"', macos)
-        self.assertIn('$SkillVersion = "0.5.0"', windows)
+        self.assertIn('SKILL_VERSION="0.5.1"', macos)
+        self.assertIn('$SkillVersion = "0.5.1"', windows)
         self.assertIn(CORE_BUNDLE_SHA256, combined)
-        self.assertIn("v1.0.10", combined)
+        self.assertIn("v1.0.11", combined)
         self.assertNotIn("/latest/", combined)
         self.assertNotIn("releases/latest", combined)
         self.assertIn("$HOME/.codex/skills", macos)
@@ -152,7 +152,7 @@ class BootstrapContractTests(unittest.TestCase):
             )
             output = json.loads(result.stdout)
             path = Path(output["path"])
-            self.assertEqual(path.name, "KaodaWoSkills-v1.6.0.zip")
+            self.assertEqual(path.name, "KaodaWoSkills-v1.7.0.zip")
             with zipfile.ZipFile(path) as archive:
                 self.assertEqual(
                     set(archive.namelist()),
@@ -165,7 +165,7 @@ class BootstrapContractTests(unittest.TestCase):
                 )
                 manifest = json.loads(archive.read("manifest.json"))
                 self.assertEqual(manifest["skill_id"], "kaoda-wo")
-                self.assertEqual(manifest["version"], "1.6.0")
+                self.assertEqual(manifest["version"], "1.7.0")
                 self.assertEqual(
                     manifest["protocol_sha256"],
                     sha256_bytes(archive.read("protocol.json")),
@@ -189,9 +189,9 @@ class BootstrapContractTests(unittest.TestCase):
             )
             output = json.loads(result.stdout)
             path = Path(output["path"])
-            self.assertEqual(path.name, "CoreSkills-v0.5.0.zip")
+            self.assertEqual(path.name, "CoreSkills-v0.5.1.zip")
             self.assertEqual(output["sha256"], CORE_BUNDLE_SHA256)
-            self.assertEqual(output["size"], 66649)
+            self.assertEqual(output["size"], 67222)
             expected = {
                 "manifest.json",
                 "pack.manifest.json",
@@ -210,7 +210,7 @@ class BootstrapContractTests(unittest.TestCase):
                 self.assertEqual(set(archive.namelist()), expected)
                 manifest = json.loads(archive.read("manifest.json"))
                 self.assertEqual(manifest["pack_id"], "core")
-                self.assertEqual(manifest["version"], "0.5.0")
+                self.assertEqual(manifest["version"], "0.5.1")
                 self.assertEqual(
                     manifest["pack_manifest_sha256"],
                     sha256_bytes(archive.read("pack.manifest.json")),

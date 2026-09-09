@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "pack_id": "core",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "title": "通用基础",
   "clients": [
     "codex",
@@ -17,12 +17,12 @@
     {
       "skill_id": "document-ocr",
       "title": "法律材料 OCR",
-      "version": "0.1.0"
+      "version": "0.1.1"
     },
     {
       "skill_id": "document-operations",
       "title": "法律文档通用读写",
-      "version": "0.3.0"
+      "version": "0.3.1"
     },
     {
       "skill_id": "skill-authoring",
