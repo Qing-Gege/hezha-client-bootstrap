@@ -91,13 +91,13 @@ class BootstrapContractTests(unittest.TestCase):
         combined = macos + windows
         self.assertIn('KaodaWoSkills-v${SKILL_VERSION}.zip', macos)
         self.assertIn('KaodaWoSkills-v$SkillVersion.zip', windows)
-        self.assertIn('SKILL_VERSION="1.6.0"', macos)
-        self.assertIn('$SkillVersion = "1.6.0"', windows)
+        self.assertIn('SKILL_VERSION="1.7.0"', macos)
+        self.assertIn('$SkillVersion = "1.7.0"', windows)
         self.assertIn(
-            "b8102c5eb9014c8b61510c971c3f73abffca74e9533e0f0ca394ce8f5721ce6e",
+            "3b94bb1db554fd94dec32e7402b1480a16507f43339e40be0b0147551313ad54",
             combined,
         )
-        self.assertIn("v1.0.9", combined)
+        self.assertIn("v1.0.12", combined)
         self.assertNotIn("/latest/", combined)
         self.assertNotIn("releases/latest", combined)
         self.assertIn("$HOME/.codex/skills", macos)
@@ -152,7 +152,7 @@ class BootstrapContractTests(unittest.TestCase):
             )
             output = json.loads(result.stdout)
             path = Path(output["path"])
-            self.assertEqual(path.name, "KaodaWoSkills-v1.6.0.zip")
+            self.assertEqual(path.name, "KaodaWoSkills-v1.7.0.zip")
             with zipfile.ZipFile(path) as archive:
                 self.assertEqual(
                     set(archive.namelist()),
@@ -165,7 +165,7 @@ class BootstrapContractTests(unittest.TestCase):
                 )
                 manifest = json.loads(archive.read("manifest.json"))
                 self.assertEqual(manifest["skill_id"], "kaoda-wo")
-                self.assertEqual(manifest["version"], "1.6.0")
+                self.assertEqual(manifest["version"], "1.7.0")
                 self.assertEqual(
                     manifest["protocol_sha256"],
                     sha256_bytes(archive.read("protocol.json")),

@@ -6,12 +6,12 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$SkillVersion = "1.6.0"
-$SkillReleaseTag = "v1.0.9"
+$SkillVersion = "1.7.0"
+$SkillReleaseTag = "v1.0.12"
 $SkillBundleName = "KaodaWoSkills-v$SkillVersion.zip"
 $SkillBundleUrl = "https://github.com/Qing-Gege/hezha-client-bootstrap/releases/download/$SkillReleaseTag/$SkillBundleName"
-$SkillBundleSize = [int64]18264
-$SkillBundleSha256 = "b8102c5eb9014c8b61510c971c3f73abffca74e9533e0f0ca394ce8f5721ce6e"
+$SkillBundleSize = [int64]19802
+$SkillBundleSha256 = "3b94bb1db554fd94dec32e7402b1480a16507f43339e40be0b0147551313ad54"
 
 function Stop-Install([string]$Message) {
     throw "HeZha kaoda-wo install failed: $Message"

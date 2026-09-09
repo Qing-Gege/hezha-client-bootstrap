@@ -3,12 +3,12 @@
 set -euo pipefail
 umask 077
 
-readonly SKILL_VERSION="1.6.0"
-readonly SKILL_RELEASE_TAG="v1.0.9"
+readonly SKILL_VERSION="1.7.0"
+readonly SKILL_RELEASE_TAG="v1.0.12"
 readonly SKILL_BUNDLE_NAME="KaodaWoSkills-v${SKILL_VERSION}.zip"
 readonly SKILL_BUNDLE_URL="https://github.com/Qing-Gege/hezha-client-bootstrap/releases/download/${SKILL_RELEASE_TAG}/${SKILL_BUNDLE_NAME}"
-readonly SKILL_BUNDLE_SIZE="18264"
-readonly SKILL_BUNDLE_SHA256="b8102c5eb9014c8b61510c971c3f73abffca74e9533e0f0ca394ce8f5721ce6e"
+readonly SKILL_BUNDLE_SIZE="19802"
+readonly SKILL_BUNDLE_SHA256="3b94bb1db554fd94dec32e7402b1480a16507f43339e40be0b0147551313ad54"
 
 fail() {
   print -u2 -- "HeZha kaoda-wo install failed: $1"
