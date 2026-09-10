@@ -1,12 +1,13 @@
 ---
 name: document-operations
 description: >
-  HeZha 法律文档交付控制器。读取、无痕修改律师合同与证据，再用 Word 比较生成修订稿并验收。扫描件必须交由 document-ocr。不作合同审查，也不用于普通非法律 Office 编辑。
+  HeZha 法律文档交付控制器。读取律师合同与证据，按修改清单使用 Word 批量原生修订并验收；缺少修改清单时才用比较兜底。扫描件必须交由 document-ocr。不作合同审查，也不用于普通非法律 Office 编辑。
 ---
 
 # 法律文档通用读写
 
-客户端技能版本：document-operations v0.3.1
+客户端技能版本：document-operations v0.4.0
+
 
 ## 职责
 
@@ -91,39 +92,68 @@ OCR 文本是检索和理解辅助，不是权威原文。姓名、金额、日�
 
 实体法律技能提供“改什么”；本技能负责“怎样可靠地写进文件”。不得为方便写入而改变已经批准的法律内容，也不得把模型自行润色混入仅要求机械修改的文件。
 
-### 2. OfficeCLI 无痕编辑优先级
+### 2. 修改操作清单与 OfficeCLI 定位
 
-OfficeCLI 可用时，长编辑会话先 `open` 工作副本；优先使用稳定 ID 定位元素。单项修改使用 `set`、`add`、`move` 或 `remove`；多项相互关联修改优先使用默认原子回滚的 `batch`。审查任务在名称不同的工作副本中直接做无痕正文修改，并用 DOCX 原生批注记录实质理由、实际后果和待决定事项。不得在这个阶段设置 `revision.author`、`revision.type` 或打开修订模式；红线痕迹统一由后续 Microsoft Word Compare 生成，也不用字体颜色假冒修订。
+实体法律技能决定文字内容后，先形成修改操作清单，不要只形成一份最终全文。每项至少记录
+`operation_id`、故事范围或结构容器、唯一原文或精确 Range、`insert` / `delete` / `replace` /
+结构操作、新文字、预期命中数、批注及执行顺序。OfficeCLI 用于读取、稳定定位、检查命中
+唯一性、结构基线和最终验收；它不是已知修改操作的默认修订写入器。
 
-不确定属性、路径或格式时先查询 `help`、`get` 或 `query`。只有 L2 无法表达且已理解目标 XML 时才进入 `raw`/`raw-set`。OfficeCLI 居民模式中的修改在交给 Word、渲染器或其他程序前必须 `close`，并用 `OFFICECLI_NO_AUTO_RESIDENT=1` 重新读取磁盘文件，确认工作版修订数为零且正文、批注已经落盘；不能让 Word 读取 resident 中尚未保存或同名缓存的旧状态。
+修改必须保留操作意图。替换记录真实旧文字与新文字，新增记录插入点，删除记录精确范围；
+不得先把整段改成最终文本，再要求比较工具倒推局部修改。最终段落即使与原文相似度很低，
+只要操作清单能逐项说明删除和插入，仍应在原段落上执行。相似度只能提示需要检查是否误把
+整段作为一个 Range 覆盖，不能成为拒绝大量合法局部修改的阈值。
+
+OfficeCLI 可用时，长读取会话先 `open`；需要为非红线文件做无痕修改时，单项使用 `set`、
+`add`、`move` 或 `remove`，关联修改使用默认原子回滚的 `batch`。不确定属性、路径或格式时
+先查询 `help`、`get` 或 `query`。只有 L2 无法表达且已理解目标 XML 时才进入
+`raw`/`raw-set`。OfficeCLI resident 中的状态在交给 Word、渲染器或其他程序前必须
+`close`，并用 `OFFICECLI_NO_AUTO_RESIDENT=1` 回读磁盘文件。
 
 PDF 通常不是首选编辑源。能够取得 DOCX、XLSX 或 PPTX 源文件时修改源文件后重新导出；只能处理 PDF 时，明确选择批注、遮盖、页面操作或生成新 PDF 的能力边界，不做不可控的 PDF 转 Word 再回写。扫描件修改必须保留原始扫描和修改说明。
 
-### 3. Word Compare 红线稿的确定性写法
+### 3. Word 批量原生修订的确定性写法
 
-把原件设为只读基准，记录其路径和 SHA-256；复制出名称不同的无痕工作版，所有正文修改和批注只作用于工作版。预先规划名称各不相同的原件、工作版、红线稿和清洁版路径；任一输出路径与原件相同即停止，不能以“已经另存”代替实际核对。
+把原件设为只读基准并记录 SHA-256，复制到名称不同的红线稿路径。AI 客户端拥有可信修改
+操作清单时，在一次 Microsoft Word 会话中打开该副本、开启 `track revisions`，批量执行
+全部精确 Range 操作并在完成后保存一次。不得为每项修改重新启动 Word、重新打开或保存；
+不得把整个段落的最终文本写回并制造整段替换。多项位置修改默认按正文位置从后向前执行，
+避免前项改变后项坐标。
 
-先用 `get` 或 `query` 锁定范围；确认命中唯一且原文准确后无痕修改。完成全部修改和批注后执行以下固定顺序：
+固定顺序如下：
 
-1. 关闭 OfficeCLI 会话；验证工作版可见正文是目标文本、`query revision` 为零、必要批注均有正文锚点。
-2. 复制原件预建红线稿占位文件。调用 Microsoft Word 比较“原件 -> 工作版”，结果放入新文档；不得比较反向，也不得在原件或工作版中落修订。
-3. 保存新比较文档到红线稿路径，关闭本次打开的 Word 文档；不能关闭用户原先已经打开的其他文档。
-4. 复制仍带批注的工作版作为清洁版，在清洁版副本中一次执行 `delete all comments`，保存后关闭。必须先生成并验证红线稿再删除批注，不能从工作版或红线稿删除。
+1. 用 OfficeCLI 对每项旧文字、容器或 Range 做执行前检查；预期唯一却命中零次或多次时停止
+   该项，不能扩大范围碰运气。保存修改清单和原件哈希。
+2. 复制原件为红线稿；Word 只打开该副本，设置 `track revisions=true`。替换、删除和插入按
+   清单逐项执行；批注锚定具体原文或新增文字。复杂表格、字段或段落结构必须使用 Word 对象
+   模型对应对象，不能把结构展平成纯文本。
+3. 保存并关闭红线稿，从磁盘重新打开或用 OfficeCLI 回读，确认每项操作都有对应修订、必要
+   批注存在、未修改原文仍保留。修订总数大于零不等于粒度合格。
+4. 复制已经验证的红线稿为清洁版；只在清洁版关闭修订、执行 `accept all revisions` 和
+   `delete all comments`，保存后关闭。不得从原件或红线稿删除批注或接受修订。
+5. 在临时副本拒绝红线稿全部修订，正文必须等于原件；接受全部修订后的正文必须等于清洁版。
+
+只有输入是两个现成版本且没有可信修改操作清单时，才使用 Word Compare 兜底，例如外部回稿
+或历史版本恢复。比较方向固定为“原件 -> 新版本”，结果保存到新文档；macOS 实际检查修订
+粒度和移动标记，Windows 使用字符级粒度并关闭移动检测。Compare 不能替代 AI 已知操作时的
+原生修订，也不能因为返回了非零修订就忽略整块删除和新增。
 
 ### 3.1 合同包逐份交付，不允许第二份降级
 
 当输入包含两份或以上合同、附件协议或回稿文件时，不能把它们合并成一份总文本后只生成
 一个输出。先建立“逐份交付台账”，每行固定记录 `item_id`、原件绝对路径、原件
-SHA-256、工作版路径、红线稿路径、清洁版路径、修订数、批注数、正文完整性、校验结果和
-失败原因；输入份数与台账行数必须相等。每一行都独立执行上面的四步流水线：
+SHA-256、修改操作清单路径、红线稿路径、清洁版路径、生成路径（原生修订或 Compare
+兜底）、修订数、批注数、正文完整性、校验结果和
+失败原因；输入份数与台账行数必须相等。每一行都独立执行上面的五步流水线：
 
-1. 为该行单独创建四类路径、临时目录、Office 文档对象和验证结果。不得把第一份合同的
-   `Document` 引用、`active document`、`redlineDoc`、输出文件名、批注计数或校验结果复用
+1. 为该行单独创建输入、修改操作清单、红线稿、清洁版路径、临时目录、Office 文档对象和
+   验证结果。不得把第一份合同的 `Document` 引用、`active document`、`redlineDoc`、
+   修改操作清单、输出文件名、批注计数或校验结果复用
    到第二份及后续合同；上一份处理完后先关闭并释放对象，再开始下一份。
 2. 每份都要实际保存、重新打开红线稿并确认正文非空、修订数大于零、必要批注仍在、原件
    哈希未变化；只校验最后一个文件不算合同包校验完成。第二份及后续文件与第一份使用完全
    相同的生成和验收门槛。
-3. 某一份 Compare 超时、返回零修订、输出未落盘、正文为空或重新打开失败时，只将该行
+3. 某一份原生修订或 Compare 兜底超时、返回零修订、输出未落盘、正文为空或重新打开失败时，只将该行
    标记为 `failed` 并记录精确原因；不得把该份改写成纯文本审查意见、总报告、无痕清洁稿
    或“待后续生成”的成功项。已经成功的其他行保留其红线文件并继续完成台账。
 4. 总状态只能按台账计算：全部行 `delivered` 才是 `completed`；部分成功是 `partial`；
@@ -136,12 +166,34 @@ SHA-256、工作版路径、红线稿路径、清洁版路径、修订数、批�
 macOS AppleScript 必须遵守以下已经实测的文件访问和对象规则：
 
 - 所有现有文件先用 `POSIX file <绝对路径> as alias` 转为 `alias`；禁止 `open file name "/posix/path"`。裸路径会让 Word 弹出“授予文件访问权限”，AppleScript 等待对话框后报 `AppleEvent 已超时 (-1712)`，这不是 Word 启动失败。
-- 显式 `activate` Word，并轮询 `every document whose full name is <alias as text>`，最多等待 10 秒。不要在 Word 尚未激活或加载完成时读取 `active document`，也不要把 `open` 的返回值当作稳定文档对象。
-- 先分别用 `alias` 打开并关闭工作版和预建红线稿占位文件，让 Word 获得安全作用域；随后只打开原件。调用 `compare (first document whose full name is <原件 HFS 路径>) path <工作版 POSIX 路径> author name <审查人>`。AppleScript 的 `compare` 不能传粒度和 CompareMoves；仍须生成字符级、非移动检测的红线效果，不得把 Word 默认词级或移动检测当作成功标准；并等待文档数增加后再取得 `active document`。不要同时保持工作版打开，也不要用 `document 1` 跨步骤保存引用；Word 会按窗口活动顺序重排索引并可能反转比较方向。
+- 显式 `activate` Word，并先将 `get every document whose full name is <alias as text>` 物化为本地列表，再对列表 `count`，最多轮询 10 秒。不要在 Word 尚未激活或加载完成时读取 `active document`，不要把 `open` 的返回值当作稳定文档对象，也不要用 `document 1` 跨步骤保存引用。
+- 原生修订主路径只打开红线副本，取得按完整路径定位的文档对象后设置 `track revisions of redlineDoc to true`。每项搜索使用新的 `text object` 和 `find object`；变量参数先写入 `content of finder` 与 `content of replacement of finder`，再调用 `execute find finder replace replace one`。不要把变量直接塞进 `execute find ... find text ... replace with ...`，本机 AppleScript 会产生编译歧义。预期命中唯一性必须在执行前验证；精确坐标操作使用 `create range redlineDoc start <start> end <end>`，并从后向前执行。
+- Word 的修订作者默认取当前 Word `user name`。不得永久修改用户的 Word 身份设置；需要指定审查人时，在本轮拥有的 Word 会话中记录旧 `user name` / `user initials`，临时设置后必须在正常和异常清理中恢复。无法证明已恢复时使用当前 Word 身份并在交付记录中披露，不得静默留下全局设置变化。
+- 红线保存并关闭后复制为清洁版；清洁版设置 `track revisions of cleanDoc to false`，依次执行 `accept all revisions cleanDoc`、`delete all comments cleanDoc`、保存和关闭。先验证红线再生成清洁版，不能在红线稿中接受修订。
+- Compare 兜底时，先分别用 `alias` 打开并关闭新版本和预建红线稿占位文件，让 Word 获得安全作用域；随后只打开原件。调用 `compare (first document whose full name is <原件 HFS 路径>) path <新版本 POSIX 路径> author name <审查人>`。AppleScript 的 `compare` 不能传粒度和 CompareMoves；仍须实际检查粒度和移动标记，并等待文档数增加后再取得 `active document`。不要同时保持新版本打开，Word 会按窗口活动顺序重排索引并可能反转比较方向。
 - `compare` 命令本身不返回结果对象。取得新活动文档后，使用 Word `save as <比较结果> file name <红线稿 HFS 路径> file format format document default`。Standard Suite 的 `save ... in <alias>` 可能不报错却不覆盖占位文件，不能采用。
-- Compare 最多等待 30 秒。发生 `-1712` 时先检查 Word 是否显示文件访问、格式转换、密码、修复或冲突对话框；只关闭本次按完整路径打开的文档并报告精确阻塞。不得盲目重置 TCC、终止 Word 或关闭用户原有文档。
+- 单份原生修订或 Compare 兜底最多等待 30 秒。发生 `-1712` 时先检查 Word 是否显示文件访问、格式转换、密码、修复或冲突对话框；只关闭本次按完整路径打开的文档并报告精确阻塞。不得盲目重置 TCC、终止 Word 或关闭用户原有文档。
 
-Windows 必须使用 Windows PowerShell 5.1 和已安装 Word 的 COM 自动化完成同一顺序；不能只写原则说明，也不能把 macOS AppleScript 改写后冒充 Windows 支持。比较必须使用字符级粒度并关闭移动检测：`Granularity=wdGranularityCharLevel`、`CompareMoves=false`。禁止词级粒度，也禁止把相似长句判成整块移动。Microsoft 官方对象模型固定为：`Application.CompareDocuments` 返回含修订的新 `Document`，`wdCompareDestinationNew=2`、`wdGranularityCharLevel=0`、`wdFormatXMLDocument=12`。以四个不同绝对路径运行下面的确定性模板；原件和工作版必须已存在，红线稿和清洁版必须尚不存在：
+Windows 必须使用 Windows PowerShell 5.1 和已安装 Word 的 COM 自动化完成同一交付契约；
+不能只写原则说明，也不能把 macOS AppleScript 改写后冒充 Windows 支持。拥有修改操作清单时，
+复制原件到红线稿路径，在本轮独立 `Word.Application` 中打开一次红线副本并设置
+`$redlineDoc.TrackRevisions = $true`。把已经验证的操作按位置倒序执行：使用
+`$range = $redlineDoc.Range($start, $end)`，删除设置 `$range.Text = ""`，替换设置
+`$range.Text = $newText`，插入使用折叠 Range 后设置 `Text`；必要批注使用
+`$redlineDoc.Comments.Add($range, $commentText)`。完成全部操作后只调用一次 `Save()`。
+
+从红线稿复制清洁版后，在同一受控实例中设置 `$cleanDoc.TrackRevisions = $false`，调用
+`$cleanDoc.AcceptAllRevisions()`、`$cleanDoc.DeleteAllComments()` 和一次 `Save()`。异常和正常
+退出必须沿用下方模板的独立进程证明、`WordPidFile`、精确清理和
+`FinalReleaseComObject` 规则；不得为每项操作创建 COM 实例或保存文件。Windows 原生修订
+路径在 Windows 10/11 + 桌面版 Word 真机验收前只能报告静态实现，不能声称跨平台实测。
+
+只有缺少可信修改操作清单时才进入以下 Compare 兜底。比较必须使用字符级粒度并关闭移动
+检测：`Granularity=wdGranularityCharLevel`、`CompareMoves=false`。禁止词级粒度，也禁止把
+相似长句判成整块移动。Microsoft 官方对象模型固定为：`Application.CompareDocuments` 返回
+含修订的新 `Document`，`wdCompareDestinationNew=2`、`wdGranularityCharLevel=0`、
+`wdFormatXMLDocument=12`。以四个不同绝对路径运行下面的兜底模板；原件和新版本必须已存在，
+红线稿和清洁版必须尚不存在：
 
 ```powershell
 param(
@@ -312,11 +364,10 @@ $result
 
 以上 Windows 参数已经按 Microsoft 官方 VBA 文档核对，但当前版本发布前仍必须在 Windows 10/11 + 桌面版 Microsoft Word 真机运行隔离样本，验证新增、删除、批注保留、清洁版零批注/零修订、原件哈希和无残留进程。没有真机证据时只能报告“Windows 流程已实现并通过静态校验，等待真机验收”，不得声称 Windows 已实测通过。
 
-只对实质性法律或商业修改、立场选择、事实变量和容易误解的删改添加批注。批注必须在工作版中锚定具体段落或运行，并写清理由、实际后果和待谁决定，例如：
-
-```text
-officecli add "<工作副本.docx>" '/body/p[N]' --type comment --prop "author=<审查人>" --prop "text=<理由；后果；待决定事项>" --prop range=true
-```
+只对实质性法律或商业修改、立场选择、事实变量和容易误解的删改添加批注。批注必须在红线
+副本中锚定具体原文、插入文字或对应 Range，并写清理由、实际后果和待谁决定。优先在同一
+Word 会话中用原生 `Comments.Add` 或 AppleScript 对应能力写入；若改用 OfficeCLI，必须先
+关闭 Word，写入并落盘后再重新验证修订、批注正文与范围锚点，不能让两个程序同时写同一文件。
 
 纯格式、编号刷新、错别字和不改变含义的机械调整不添加批注；在修改摘要中合并记录即可。批注不得重复修订文字，也不得写成长篇法律意见。
 
@@ -326,11 +377,11 @@ officecli add "<工作副本.docx>" '/body/p[N]' --type comment --prop "author=<
 
 1. 保存并关闭编辑会话，确认目标文件实际存在、输出路径与原件不同，并重新计算原件 SHA-256，确认原件未变化。
 2. 对 Office 文件运行 `officecli validate`，并用 `view issues` 检查内容、格式和结构问题。
-3. 对工作版、红线稿和清洁版分别运行 `query revision`、`query comment`、`query bookmark` 和 `query field`。工作版应无修订并保留必要批注；红线稿正文必须等于工作版、包含本轮真实修订并保留必要批注；清洁版正文必须等于工作版且修订、批注都为零。继续确认 `REF`、`PAGEREF`、`NOTEREF` 和内部超链接的目标书签存在。文本确有差异但红线稿修订数为零属于 Word Compare 静默失败，不交付。
+3. 对原件、红线稿和清洁版分别运行 `query revision`、`query comment`、`query bookmark` 和 `query field`。红线稿必须包含与修改操作清单逐项对应的真实修订并保留必要批注；拒绝全部修订后的正文必须等于原件，接受全部修订后的正文必须等于清洁版；清洁版修订、批注都为零。继续确认 `REF`、`PAGEREF`、`NOTEREF` 和内部超链接的目标书签存在。文本确有差异但修订数为零属于静默失败，不交付；修订数非零但仍把可保留原文整块删除重加也不通过粒度验收。
 4. 对比原件与输出的表格、编号引用和交叉引用数量。数量减少时必须逐项证明是带修订的批准删除；不能证明就视为结构损坏，不交付。
 5. 重新读取所有修改位置，核对文本、数字、公式、链接、交叉引用、批注和修订状态；字段未求值、缓存过期或书签首尾不配对时必须修复。
 6. 默认不截图、不做逐页视觉分析，也不为“确保排版正确”反复调整；只有 `officecli validate`、`view issues`、重新读取、结构对比或用户预览明确显示排版问题时，才渲染受影响范围并复核，修复后只检查与问题相关的页面、工作表或幻灯片。
-7. 对照批准的修改清单，确认无遗漏、无越权改写、无意外新增；确认红线稿接受全部修订后的正文与清洁版一致，且删除清洁版批注没有影响工作版或红线稿。
+7. 对照批准的修改操作清单，确认每项删除、插入、替换、结构操作和批注均有对应结果，无遗漏、无越权改写、无意外新增；确认生成清洁版没有影响红线稿。
 8. 记录原件与输出文件、基线哈希、修改摘要、结构对比、验证结果、剩余限制和需要律师人工确认的事项。
 
 ## 停止条件
